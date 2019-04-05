@@ -1,4 +1,4 @@
-# proposal
+# Proposal
 
 ## Summary 
 This project, the HeapSentry, aims to detect and prevent malicious heap overflows by adding canaries at the end of each heap object and checking by the kernel before system calls executed. The attacker model of HeapSentry includes both Control-data attacks and Non-control-data-attacks. The implementation of HeapSentry can be divided into two components: *HeapSentry-U* and *HeapSentry-K*.
