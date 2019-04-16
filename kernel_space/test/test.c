@@ -12,15 +12,15 @@ void t1(int *c){
 
 int canary_test()
 {
-	int r = -2;
+	int ret = -2;
 	
 	// size_t *v = (size_t *) addr_canary;
 	// printf("%d\n",v[0]);
 	t1(&canary);
-	// syscall(360, &canary);
-	// __asm__ __volatile__("int $0x80":"=a"(r):"a"(360),"b"((int) &canary): "memory");
+	syscall(360, &canary);
+	// __asm__ __volatile__("int $0x80":"=a"(ret):"a"(360),"b"((int) &canary): "memory");
 	// printf("%d\n",r);
-	return r;
+	return ret;
 }
 
 int main(void)

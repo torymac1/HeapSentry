@@ -5,14 +5,6 @@
 #include <stdlib.h>
 
 
-typedef struct Block_with_canary {
-	size_t *block_location;
-	size_t *canary_location;
-	size_t canary;
-} Block_with_canary;
-
-
-
 static void* (*real_malloc)(size_t)=NULL;
 
 static void mtrace_init(void)
