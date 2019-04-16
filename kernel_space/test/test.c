@@ -6,9 +6,9 @@
 
 int canary = 777;
 
-void t1(int *c){
-	printf("%d\n",*c);
-}
+// void t1(int *c){
+// 	printf("%d\n",*c);
+// }
 
 int canary_test()
 {
