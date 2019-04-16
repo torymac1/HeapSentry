@@ -50,7 +50,7 @@ asmlinkage int sys_canary(int *canary){
 }
 
 static int init_mod(void){
-	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
+	printk(KERN_EMERG "Syscall Table Address: %x\n",  SYSCALL_TABLE);
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
