@@ -2,7 +2,7 @@
 #include <syscall.h>
 #include <sys/types.h>
 #include <stdio.h>
-
+#include "../"
 
 int canary = 777;
 
@@ -16,8 +16,9 @@ int canary_test()
 	
 	// size_t *v = (size_t *) addr_canary;
 	// printf("%d\n",v[0]);
-	t1(&canary);
-	syscall(360, &canary);
+	// t1(&canary);
+	printf("%x\n",(size_t) &canary);
+	syscall(360, (size_t) &canary);
 	// __asm__ __volatile__("int $0x80":"=a"(ret):"a"(360),"b"((int) &canary): "memory");
 	// printf("%d\n",r);
 	return ret;

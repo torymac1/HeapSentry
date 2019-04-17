@@ -41,11 +41,20 @@ asmlinkage int sys_hello(void){
     return 0;
 }
 
-asmlinkage int sys_canary(int *canary){
+asmlinkage int sys_canary(size_t canary){
 	// size_t c = *(size_t *)addr_canary;
 	// printk(KERN_EMERG "canary_addr = %p\n", (size_t) addr_canary);
 	// size_t v = *(size_t *) addr_canary;
-	printk(KERN_EMERG "canary = %d\n", *canary);
+	if(access_ok(VERIFY_READ, (size_t *) canary, sizeof(size_t))){
+		printk(KERN_EMERG "Access ok");
+		int x;
+		get_user(x, (size_t *) canary);
+		printk(KERN_EMERG "Access ok, %d\n", x);
+	}
+	else{
+		printk(KERN_EMERG "Can't access");
+	}
+	// printk(KERN_EMERG "canary = %d\n", *canary);
 	return 1;
 }
 
