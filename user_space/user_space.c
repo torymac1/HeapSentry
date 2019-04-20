@@ -45,8 +45,9 @@ void add_canary(void *ptr, size_t size){
     *canary_addr = canary_val;
 
     Canary tmp = {canary_val, (size_t) ptr, size + sizeof(int)};
-
+    printf("Add canary at block pos %x\n", tmp.block_addr);
     syscall(361, tmp.canary_val, tmp.block_addr, tmp.block_size);
+
     // if(canary_num < MAX_CANARY){
     //     int i;
     //     for(i=0; i<MAX_CANARY; i++){
@@ -72,21 +73,23 @@ void add_canary(void *ptr, size_t size){
 }
 
 void remove_canary(void *ptr){
+    printf("remove %x\n", (size_t) ptr);
+    syscall(362, (size_t) ptr);
     // if(canary_num == 0){
     //     printf("No canary!");
     // }
-    int i;
-    for(i=0; i<MAX_CANARY; i++){
-        //Move the last canary to the deleted canary's position
-        if(canary_buf[i].block_addr == (size_t) ptr){
-            int cur_canary = *(int *)(ptr + canary_buf[i].block_size - sizeof(int));
-            //remove_canary_from_kernel();
-            printf("Remove canary pos = %d, addr = 0x%x, val = %d\n", i, canary_buf[i].block_addr, cur_canary);
-            canary_buf[i] = empty_canary;
-            canary_num--;
-            break;
-        }
-    }
+    // int i;
+    // for(i=0; i<MAX_CANARY; i++){
+    //     //Move the last canary to the deleted canary's position
+    //     if(canary_buf[i].block_addr == (size_t) ptr){
+    //         int cur_canary = *(int *)(ptr + canary_buf[i].block_size - sizeof(int));
+    //         //remove_canary_from_kernel();
+    //         printf("Remove canary pos = %d, addr = 0x%x, val = %d\n", i, canary_buf[i].block_addr, cur_canary);
+    //         canary_buf[i] = empty_canary;
+    //         canary_num--;
+    //         break;
+    //     }
+    // }
 
 }
 

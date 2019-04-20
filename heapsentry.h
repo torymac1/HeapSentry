@@ -1,4 +1,4 @@
-
+#define MAX_PID 32768
 
 
 typedef struct Canary{
