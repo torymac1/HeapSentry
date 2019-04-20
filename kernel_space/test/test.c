@@ -2,7 +2,9 @@
 #include <syscall.h>
 #include <sys/types.h>
 #include <stdio.h>
-#include "../"
+// #include "../"
+#include <linux/types.h>
+
 
 int canary = 777;
 
@@ -27,8 +29,8 @@ int canary_test()
 int main(void)
 {
     int p = -1;
-    // pid = syscall(360);
-    p = canary_test();
+   	syscall(362);
+    // p = canary_test();
     // printf("%d\n",pid);
     return p;
 }

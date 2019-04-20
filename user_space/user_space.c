@@ -1,10 +1,14 @@
 #define _GNU_SOURCE
 
 #include <stdio.h>
+#include <unistd.h>
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <time.h> 
 #include "../heapsentry.h"
+#include <sys/syscall.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
 #define MAX_CANARY 100
 Canary *canary_buf = NULL;
@@ -42,34 +46,35 @@ void add_canary(void *ptr, size_t size){
 
     Canary tmp = {canary_val, (size_t) ptr, size + sizeof(int)};
 
-    if(canary_num<MAX_CANARY){
-        int i;
-        for(i=0; i<MAX_CANARY; i++){
-            if(canary_buf[i].block_addr == -1){
-                canary_buf[i] = tmp;
-                break;
-            }
-        }
+    syscall(361, tmp.canary_val, tmp.block_addr, tmp.block_size);
+    // if(canary_num < MAX_CANARY){
+    //     int i;
+    //     for(i=0; i<MAX_CANARY; i++){
+    //         if(canary_buf[i].block_addr == -1){
+    //             canary_buf[i] = tmp;
+    //             break;
+    //         }
+    //     }
         
-        printf("Add canary at block pos = %x, addr = 0x%x, val = %d\n", i, canary_buf[i].block_addr, canary_buf[i].canary_val);   
-        canary_num++;
-    }
+    //     printf("Add canary at block pos = %x, addr = 0x%x, val = %d\n", i, canary_buf[i].block_addr, canary_buf[i].canary_val);   
+    //     canary_num++;
+    // }
 
-    if(canary_num == MAX_CANARY){
-        //sent_canary_to_kernel();
-        int i;
-        for(i = 0; i<canary_num; i++){
-            canary_buf[i]= empty_canary;
-        }
-        canary_num = 0;
-    }
+    // if(canary_num == MAX_CANARY){
+    //     //sent_canary_to_kernel();
+    //     int i;
+    //     for(i = 0; i<canary_num; i++){
+    //         canary_buf[i]= empty_canary;
+    //     }
+    //     canary_num = 0;
+    // }
     
 }
 
 void remove_canary(void *ptr){
-    if(canary_num == 0){
-        printf("No canary!");
-    }
+    // if(canary_num == 0){
+    //     printf("No canary!");
+    // }
     int i;
     for(i=0; i<MAX_CANARY; i++){
         //Move the last canary to the deleted canary's position

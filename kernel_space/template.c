@@ -3,6 +3,7 @@
  * specific kernel module.
 */
 
+
 #include<linux/init.h>
 #include<linux/module.h>
 #include<linux/kernel.h>
@@ -12,6 +13,12 @@
 #include<asm/current.h>
 #include<linux/sched.h>
 #include<linux/syscalls.h>
+#include "../heapsentry.h"
+#include <linux/types.h>
+#include <linux/list.h>
+#include <linux/hashtable.h>
+// #include <sys/types.h>
+
 // #include<asm/system.h>
 
 MODULE_LICENSE("GPL");
@@ -19,6 +26,26 @@ MODULE_AUTHOR("maK");
 
 #define SYSCALL_TABLE_TEMPLATE
 // #define __NR_hello 360
+
+struct object
+{
+    int id;
+    char name[16];
+
+    struct hlist_node node;
+};
+
+struct pid_canary_hlist{
+
+};
+
+struct canary_hlist{
+	int canary_val;
+	size_t block_addr;   //key
+	size_t block_size;
+
+	struct hlist_node node;
+};
 
 unsigned long *sys_call_table = (unsigned long *) SYSCALL_TABLE;
 
@@ -46,8 +73,8 @@ asmlinkage int sys_canary(size_t canary){
 	// printk(KERN_EMERG "canary_addr = %p\n", (size_t) addr_canary);
 	// size_t v = *(size_t *) addr_canary;
 	if(access_ok(VERIFY_READ, (size_t *) canary, sizeof(size_t))){
-		printk(KERN_EMERG "Access ok");
 		int x;
+		printk(KERN_EMERG "Access ok");
 		get_user(x, (size_t *) canary);
 		printk(KERN_EMERG "Access ok, %d\n", x);
 	}
@@ -58,13 +85,41 @@ asmlinkage int sys_canary(size_t canary){
 	return 1;
 }
 
+asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
+	DEFINE_HASHTABLE(htable, 3);
+	struct canary_hlist c = {
+		.canary_val = tmp1,
+		.block_addr = tmp2,
+		.block_size = tmp3,
+	};
+	hash_add(htable, &c.node, c.block_addr);
+
+	printk(KERN_EMERG "Canary addr = %d, val = %x\n", c.canary_val, c.block_addr);
+	return 0;
+}
+
+
+asmlinkage int remove_canary(size_t block_addr){
+	struct canary_hlist* obj;
+	hash_for_each_possible(htable, obj, node, block_addr) {
+	        if(obj->block_addr == block_addr) {
+	            printk(KERN_EMERG "Remove Canary addr = %d, val = %x\n", obj->canary_val, obj->block_addr);
+	            
+	        }
+	    }
+	return 0;
+}
+
+
 static int init_mod(void){
 	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
 	// orig_saved = (unsigned long *)(sys_call_table[__NR_hello]);
-	sys_call_table[360] = (unsigned long *)sys_canary;
+	sys_call_table[360] = (unsigned long *) sys_canary;
+	sys_call_table[361] = (unsigned long *) accept_canary;
+	// sys_call_table[362] = (unsigned long *) test_hash;
 	// original_write = (void *)sys_call_table[__NR_write];
 	// original_open = (void *)sys_call_table[__NR_open];
 	// sys_call_table[__NR_write] = new_write;
