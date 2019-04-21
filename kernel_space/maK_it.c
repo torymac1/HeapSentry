@@ -44,7 +44,7 @@ struct pid_canary_hlist{
 struct canary_hlist{
 	int canary_val;
 	int block_addr;   //key
-	// int block_size;
+	int block_size;
 
 	struct hlist_node node;
 };
@@ -95,34 +95,35 @@ asmlinkage int sys_canary(size_t canary){
 	return 1;
 }
 
-// asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
-	
-// 	struct canary_hlist c = {
-// 		.canary_val = canary_val,
-// 		.block_addr = block_addr,
-// 		.block_size = block_size,
-		
-// 	};
-// 	// sprintf(c.block_addr_str, "%d", block_addr);
-// 	hash_add(htable, &c.node, c.block_addr);
+asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
 
-// 	printk(KERN_EMERG "Canary addr = %d, val = %d\n", c.canary_val, c.block_addr);
-// 	return 0;
-// }
+	struct canary_hlist *obj = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+	obj->canary_val = canary_val,
+	obj->block_addr = block_addr,
+	obj->block_size = block_size,
+	hash_add(htable, &obj->node, obj->block_addr);
+
+	printk(KERN_EMERG "Add canary val = %d, addr = %p\n", obj->canary_val, (void *)obj->block_addr);
+	return 1;
+}
 
 
-// asmlinkage int remove_canary(int block_addr){
-// 	int key = block_addr;
-// 	struct canary_hlist* obj;
-// 	hash_for_each_possible(htable, obj, node, key) {
-//         // if(obj->block_addr_str == tmp) {
-//         //     printk(KERN_EMERG "Remove Canary addr = %d, val = %d\n", obj->canary_val, obj->block_addr);
-            
-//         // }
-//         // printk(KERN_EMERG "Remove Canary addr");
-//     }
-// 	return 0;
-// }
+asmlinkage int remove_canary(int block_addr){
+	bool flag = false;
+	int key = block_addr;
+	struct canary_hlist* obj;
+	hash_for_each_possible(htable, obj, node, key) {
+        if(obj->block_addr == key) {
+            printk(KERN_EMERG "Remove Canary val = %d, addr = %p\n", obj->canary_val, (void *)obj->block_addr);
+            hash_del(&obj->node);
+            kfree(obj);
+            flag = true;
+        }
+    }
+    if(!flag)
+    	return -1; //Can't free
+	return 0;
+}
 
 asmlinkage void build_hashtable(int t1, int t2, int t3)
 {
@@ -174,8 +175,8 @@ static int init_mod(void){
 	write_cr0 (read_cr0 () & (~ 0x10000));
 	// orig_saved = (unsigned long *)(sys_call_table[__NR_hello]);
 	// sys_call_table[360] = (unsigned long *) sys_canary;
-	// sys_call_table[361] = (unsigned long *) accept_canary;
-	// sys_call_table[362] = (unsigned long *) remove_canary;
+	sys_call_table[361] = (unsigned long *) accept_canary;
+	sys_call_table[362] = (unsigned long *) remove_canary;
 	sys_call_table[363] = (unsigned long *) build_hashtable;
 	sys_call_table[364] = (unsigned long *) find_hashtable;
 
