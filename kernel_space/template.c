@@ -31,7 +31,8 @@ MODULE_AUTHOR("maK");
 
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
-
+	long pid;
+	struct canary_hlist *ch;
 };
 
 
@@ -53,6 +54,7 @@ asmlinkage long (*original_getpid) (void);
 
 
 DEFINE_HASHTABLE(htable, 10);
+DEFINE_HASHTABLE(pid_table, 16);
 
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
