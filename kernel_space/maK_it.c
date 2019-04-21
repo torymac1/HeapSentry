@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/hashtable.h>
+#include <linux/slab.h>
 // #include <sys/types.h>
 
 // #include<asm/system.h>
@@ -131,13 +132,17 @@ asmlinkage void build_hashtable(int t1, int t2, int t3)
     // int id = name;
     
 	
-    struct canary_hlist obj1 = {
-        .canary_val = t1,
-        .block_addr = t2,
-        // .block_size = t3,
-    };
-    hash_add(htable, &obj1.node, obj1.block_addr);
-    printk(KERN_EMERG "key=%d => %d\n", obj1.block_addr, obj1.canary_val);
+    // struct canary_hlist obj1 = {
+    //     .canary_val = t1,
+    //     .block_addr = t2,
+    //     // .block_size = t3,
+    // };
+
+    struct canary_hlist *obj1 = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+    obj1->canary_val = t1;
+    obj1->block_addr = t2;
+    hash_add(htable, &(obj1->node), obj1->block_addr);
+    printk(KERN_EMERG "Pkey=%d => %d\n", obj1->block_addr, obj1->canary_val);
 
  
 }
