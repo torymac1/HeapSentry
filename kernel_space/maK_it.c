@@ -149,14 +149,21 @@ asmlinkage void build_hashtable(int t1, int t2, int t3)
 
 asmlinkage void find_hashtable(int t2){
 	// find
+	bool flag = false;
     int key = t2;
     struct canary_hlist* obj;
     hash_for_each_possible(htable, obj, node, key) {
         if(obj->block_addr == key) {
-
-            printk(KERN_EMERG "Find key");
+        	printk(KERN_EMERG "Find key %d\n", obj->block_addr);
+        	hash_del(&obj->node);
+            kfree(obj);
+            flag = true;
         }
     }
+    if(!flag){
+    	printk(KERN_EMERG "Cant't find key %d\n", key);
+    }
+
 }
 
 

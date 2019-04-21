@@ -34,6 +34,7 @@ int main(void)
    	syscall(363, 2, 2);
    	syscall(363, 3, 3);
    	syscall(364,3);
+    syscall(364,3);
     // p = canary_test();
     // printf("%d\n",pid);
     return p;
