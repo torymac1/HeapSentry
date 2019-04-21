@@ -26,21 +26,16 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("maK");
 
 #define SYSCALL_TABLE_TEMPLATE
-// #define __NR_hello 360
 
-struct object
-{
-    int id;
-    // char name[16];
-    int name;
 
-    struct hlist_node node;
-};
 
+//A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
 
 };
 
+
+//A hashtable to store key = block_addr, val = canary_val;
 struct canary_hlist{
 	int canary_val;
 	int block_addr;   //key
@@ -49,19 +44,15 @@ struct canary_hlist{
 	struct hlist_node node;
 };
 
-struct t{
-	int t1;
-	int t2;
-};
 
 unsigned long *sys_call_table = (unsigned long *) SYSCALL_TABLE;
 
 asmlinkage int (*original_write)(unsigned int, const char __user *, size_t);
 asmlinkage int (*original_open)(const char *pathname, int flags);
+asmlinkage long (*original_getpid) (void);
+
 
 DEFINE_HASHTABLE(htable, 10);
-struct t ttt;
-
 
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
@@ -73,15 +64,9 @@ asmlinkage int new_open(const char *pathname, int flags) {
     // hijacked open
     return (*original_open)(pathname, flags);
 }
-asmlinkage int sys_hello(void){
-	printk(KERN_EMERG "i am hack syscall!\n");
-    return 0;
-}
+
 
 asmlinkage int sys_canary(size_t canary){
-	// size_t c = *(size_t *)addr_canary;
-	// printk(KERN_EMERG "canary_addr = %p\n", (size_t) addr_canary);
-	// size_t v = *(size_t *) addr_canary;
 	if(access_ok(VERIFY_READ, (size_t *) canary, sizeof(size_t))){
 		int x;
 		printk(KERN_EMERG "Access ok");
@@ -91,7 +76,6 @@ asmlinkage int sys_canary(size_t canary){
 	else{
 		printk(KERN_EMERG "Can't access");
 	}
-	// printk(KERN_EMERG "canary = %d\n", *canary);
 	return 1;
 }
 
@@ -125,46 +109,9 @@ asmlinkage int remove_canary(int block_addr){
 	return 0;
 }
 
-asmlinkage void build_hashtable(int t1, int t2, int t3)
-{
-    // define a hash table with 2^3(=8) buckets
-    // DEFINE_HASHTABLE(htable, 3);
-    // => struct hlist_head htable[8] = { [0 ... 7] = HLIST_HEAD_INIT };
-    // int id = name;
-    
-	
-    // struct canary_hlist obj1 = {
-    //     .canary_val = t1,
-    //     .block_addr = t2,
-    //     // .block_size = t3,
-    // };
-
-    struct canary_hlist *obj1 = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
-    obj1->canary_val = t1;
-    obj1->block_addr = t2;
-    hash_add(htable, &(obj1->node), obj1->block_addr);
-    printk(KERN_EMERG "Pkey=%d => %d\n", obj1->block_addr, obj1->canary_val);
-
- 
-}
-
-asmlinkage void find_hashtable(int t2){
-	// find
-	bool flag = false;
-    int key = t2;
-    struct canary_hlist* obj;
-    hash_for_each_possible(htable, obj, node, key) {
-        if(obj->block_addr == key) {
-        	printk(KERN_EMERG "Find key %d\n", obj->block_addr);
-        	hash_del(&obj->node);
-            kfree(obj);
-            flag = true;
-        }
-    }
-    if(!flag){
-    	printk(KERN_EMERG "Cant't find key %d\n", key);
-    }
-
+asmlinkage void test_getpid(void){
+	long pid = original_getpid();
+	printk(KERN_EMERG "Current pid = %lu\n", pid);
 }
 
 
@@ -177,8 +124,8 @@ static int init_mod(void){
 	// sys_call_table[360] = (unsigned long *) sys_canary;
 	sys_call_table[361] = (unsigned long *) accept_canary;
 	sys_call_table[362] = (unsigned long *) remove_canary;
-	sys_call_table[363] = (unsigned long *) build_hashtable;
-	sys_call_table[364] = (unsigned long *) find_hashtable;
+	sys_call_table[363] = (unsigned long *) test_getpid;
+	original_getpid = sys_call_table[__NR_getpid];
 
 	// original_write = (void *)sys_call_table[__NR_write];
 	// original_open = (void *)sys_call_table[__NR_open];
@@ -199,6 +146,10 @@ static void exit_mod(void){
 	write_cr0 (read_cr0 () & (~ 0x10000));
 	// sys_call_table[__NR_write] = original_write;
 	// sys_call_table[__NR_open] = original_open;
+	sys_call_table[361] = NULL;
+	sys_call_table[362] = NULL;
+	sys_call_table[__NR_getpid] = original_getpid;
+
 	write_cr0 (read_cr0 () | 0x10000);
 	printk(KERN_EMERG "Module exited cleanly");
 	return;
