@@ -32,7 +32,9 @@ MODULE_AUTHOR("maK");
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
 	long pid;
-	struct canary_hlist *ch;
+	int num_of_canary;
+	struct hlist_head (*canary_hlist_head)[1 << 16];
+	struct hlist_node node;
 };
 
 
@@ -53,7 +55,9 @@ asmlinkage int (*original_open)(const char *pathname, int flags);
 asmlinkage long (*original_getpid) (void);
 
 
-DEFINE_HASHTABLE(htable, 10);
+// DEFINE_HASHTABLE(htable, 10);
+DEFINE_HASHTABLE(htable, 16);
+
 DEFINE_HASHTABLE(pid_table, 16);
 
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
@@ -116,6 +120,23 @@ asmlinkage void test_getpid(void){
 	printk(KERN_EMERG "Current pid = %lu\n", pid);
 }
 
+// asmlinkage pid_canary_hlist* find_pid_hlist(long pid){
+// 	struct pid_canary_hlist *res = NULL;
+// 	int key = pid;
+// 	struct pid_canary_hlist* obj;
+// 	hash_for_each_possible(pid_table, obj, node, key){
+// 		if(obj->pid == key){
+// 			printk(KERN_EMERG "Find pid = %d\n", obj->pid);
+// 			res = obj;
+// 			break;
+// 		}
+// 	}
+// 	return obj;
+// }
+
+// asmlinkage void init_canary(long pid){
+	
+// }
 
 static int init_mod(void){
 	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
