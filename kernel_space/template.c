@@ -26,14 +26,13 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("maK");
 
 #define SYSCALL_TABLE_TEMPLATE
-
-
+#define PID_TABLE_SIZE 10
 
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
 	long pid;
 	int num_of_canary;
-	struct hlist_head (*canary_hlist_head)[1 << 16];
+	struct hlist_head (*canary_hlist_head)[1 << PID_TABLE_SIZE];
 	struct hlist_node node;
 };
 
@@ -57,8 +56,8 @@ asmlinkage long (*original_getpid) (void);
 
 // DEFINE_HASHTABLE(htable, 10);
 DEFINE_HASHTABLE(htable, 16);
-
 DEFINE_HASHTABLE(pid_table, 16);
+
 
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
@@ -85,26 +84,59 @@ asmlinkage int sys_canary(size_t canary){
 	return 1;
 }
 
+asmlinkage struct pid_canary_hlist* get_pid_table(void){
+	long pid = original_getpid();
+
+	//pid already in the pid_table
+	struct pid_canary_hlist *obj;
+	hash_for_each_possible(pid_table, obj, node, pid){
+		if(obj->pid == pid){
+			printk(KERN_EMERG "Find pid = %d\n", obj->pid);
+			return obj;
+		}
+	}
+
+	//insert new pid pid into the pid_table
+	struct pid_canary_hlist *new_obj =  (struct pid_canary_hlist*) kmalloc(sizeof(struct pid_canary_hlist), GFP_KERNEL);
+	struct hlist_head (*tmp)[1 << PID_TABLE_SIZE] = (struct hlist_head(*)[1 << PID_TABLE_SIZE])  \	
+										kmalloc(sizeof(struct hlist_head(*)[1 << PID_TABLE_SIZE]), GFP_KERNEL);
+	
+	new_obj->pid = pid;
+	new_obj->num_of_canary = 0;
+	new_obj->canary_hlist_head = tmp;
+	hash_add(pid_table, &new_obj->node, new_obj->pid);
+	printk(KERN_EMERG "Add pid = %d\n", new_obj->pid);
+	
+	return new_obj;
+}
+
 asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
+	//get or create pid_canary_hlist for cur_pid, return address
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 
-	struct canary_hlist *obj = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
-	obj->canary_val = canary_val,
-	obj->block_addr = block_addr,
-	obj->block_size = block_size,
-	hash_add(htable, &obj->node, obj->block_addr);
+	//insert cur_canary into cur_pid table
+	struct canary_hlist *cur_canary = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+	cur_canary->canary_val = canary_val,
+	cur_canary->block_addr = block_addr,
+	cur_canary->block_size = block_size,
+	hash_add(*(cur_pid_table->canary_hlist_head), &cur_canary->node, cur_canary->block_addr);
 
-	printk(KERN_EMERG "Add canary val = %d, addr = %p\n", obj->canary_val, (void *)obj->block_addr);
+	printk(KERN_EMERG "[pid = %d] Add canary val = %d, addr = %p\n", cur_pid_table->pid, cur_canary->canary_val \
+		                                              , (void *)cur_canary->block_addr);
 	return 1;
 }
 
 
 asmlinkage int remove_canary(int block_addr){
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+
 	bool flag = false;
 	int key = block_addr;
 	struct canary_hlist* obj;
-	hash_for_each_possible(htable, obj, node, key) {
+	hash_for_each_possible(*(cur_pid_table->canary_hlist_head), obj, node, key) {
         if(obj->block_addr == key) {
-            printk(KERN_EMERG "Remove Canary val = %d, addr = %p\n", obj->canary_val, (void *)obj->block_addr);
+            printk(KERN_EMERG "[pid = %d] Remove Canary val = %d, addr = %p\n", cur_pid_table->pid, obj->canary_val, \
+            	                                         (void *)obj->block_addr);
             hash_del(&obj->node);
             kfree(obj);
             flag = true;
@@ -115,10 +147,45 @@ asmlinkage int remove_canary(int block_addr){
 	return 0;
 }
 
-asmlinkage void test_getpid(void){
-	long pid = original_getpid();
-	printk(KERN_EMERG "Current pid = %lu\n", pid);
+
+
+asmlinkage void test_pid_hlist(void){
+
+	struct pid_canary_hlist *obj =  (struct pid_canary_hlist*) kmalloc(sizeof(struct pid_canary_hlist), GFP_KERNEL);
+	struct hlist_head (*tmp)[1 << PID_TABLE_SIZE] = (struct hlist_head(*)[1 << PID_TABLE_SIZE])  \
+											kmalloc(sizeof(struct hlist_head(*)[1 << PID_TABLE_SIZE]), GFP_KERNEL);
+	obj->pid = 1;
+	obj->num_of_canary = 0;
+	obj->canary_hlist_head = tmp;
+	hash_add(pid_table, &obj->node, obj->pid);
+	printk(KERN_EMERG "Add pid = %d\n", obj->pid);
+
+	struct canary_hlist *c1 = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+	c1->canary_val = 6,
+	c1->block_addr = 6,
+	c1->block_size = 6,
+	hash_add(*(obj->canary_hlist_head), &c1->node, c1->block_addr);
+
+	struct canary_hlist *c2 = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+	c2->canary_val = 7,
+	c2->block_addr = 7,
+	c2->block_size = 7,
+	hash_add(*(obj->canary_hlist_head), &c2->node, c2->block_addr);
+
+	int key = 7;
+	struct canary_hlist* c_obj;
+	hash_for_each_possible(*(obj->canary_hlist_head), c_obj, node, key) {
+        if(c_obj->block_addr == key) {
+            printk(KERN_EMERG "Remove Canary val = %d, addr = %d\n", c_obj->canary_val, c_obj->block_addr);
+            // hash_del(&obj->node);
+            // kfree(obj);
+            // flag = true;
+        }
+    }
+
+	
 }
+
 
 // asmlinkage pid_canary_hlist* find_pid_hlist(long pid){
 // 	struct pid_canary_hlist *res = NULL;
@@ -147,7 +214,7 @@ static int init_mod(void){
 	// sys_call_table[360] = (unsigned long *) sys_canary;
 	sys_call_table[361] = (unsigned long *) accept_canary;
 	sys_call_table[362] = (unsigned long *) remove_canary;
-	sys_call_table[363] = (unsigned long *) test_getpid;
+	sys_call_table[364] = (unsigned long *) get_pid_table;
 	original_getpid = sys_call_table[__NR_getpid];
 
 	// original_write = (void *)sys_call_table[__NR_write];

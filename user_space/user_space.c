@@ -12,6 +12,8 @@
 
 #define MAX_CANARY 100
 Canary *canary_buf = NULL;
+
+
 int canary_num = 0;
 const Canary empty_canary = {-1, -1, -1};
 

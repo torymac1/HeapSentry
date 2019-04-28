@@ -30,7 +30,10 @@ int main(void)
 {
     int p = -1;
     int a = 1, b = 1;
-    syscall(363);
+    syscall(364);
+    syscall(364);
+    syscall(364);
+    syscall(364);
     // p = canary_test();
     // printf("%d\n",pid);
     return p;
