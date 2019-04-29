@@ -113,7 +113,7 @@ void add_canary_alloc(void *ptr, size_t size){
     /*Solution 2: */
     if(buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
-        // syscall(361, alloc_buf);
+        syscall(361, alloc_buf, buf_cnt);
         alloc_buf[0] = tmp;
         int i;
         for(i = 1; i < CANARY_BUF_SIZE; i++)
@@ -168,7 +168,7 @@ void add_canary2free(void *ptr){
     printf("Add pointer: %p to free_buf[%d]\n", ptr, free_cnt);
     if(free_cnt == CANARY_BUF_SIZE){
         printf("free_buf is full, pushing ptrs to kernel...\n");
-        // syscall(362, free_buf);
+        syscall(362, free_buf, free_cnt);
         free_buf[0] = ptr;
         int i;
         for(i = 1; i < CANARY_BUF_SIZE; i++){
