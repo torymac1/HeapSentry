@@ -20,6 +20,14 @@ int buf_cnt = 0, free_cnt = 0;
 Canary *alloc_buf = NULL;
 void* *free_buf = NULL;
 
+<<<<<<< HEAD
+=======
+#define MAX_CANARY 100
+Canary *canary_buf = NULL;
+
+
+int canary_num = 0;
+>>>>>>> HS/master
 const Canary empty_canary = {-1, -1, -1};
 
 static void* (*real_malloc)(size_t) = NULL;
