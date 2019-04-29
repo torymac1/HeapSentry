@@ -26,7 +26,7 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("maK");
 
 #define SYSCALL_TABLE_TEMPLATE
-#define PID_TABLE_SIZE 3
+#define PID_TABLE_SIZE 10
 
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
@@ -205,6 +205,52 @@ asmlinkage void test_pid_hlist(void){
     }
 }
 
+asmlinkage void accept_canary_buf(Canary *alloc_buf, int buf_cnt){
+	
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+
+	Canary *alloc_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*buf_cnt, GFP_KERNEL);
+	if(copy_from_user(alloc_buf_kernel, alloc_buf, sizeof(struct Canary)*buf_cnt)!=0){
+		printk(KERN_EMERG "[ERROR] Can't copy from user_space %p to kernel_space %p\n.", alloc_buf, alloc_buf_kernel);
+	}
+	
+	int i;
+	for(i=0; i<buf_cnt; i++){
+		struct canary_hlist *cur_canary = (struct canary_hlist *) kmalloc(sizeof(struct canary_hlist), GFP_KERNEL);
+		cur_canary->canary_val = alloc_buf_kernel[i].canary_val;
+		cur_canary->block_addr = alloc_buf_kernel[i].block_addr;
+		cur_canary->block_size = alloc_buf_kernel[i].block_size;
+		hash_add(cur_pid_table->canary_table, &cur_canary->node, cur_canary->block_addr);
+		printk(KERN_EMERG "Accept Canary val = %d, addr = %d\n", alloc_buf_kernel[i].canary_val, \
+			                        alloc_buf_kernel[i].block_addr);
+	}
+	kfree(alloc_buf_kernel);
+}
+
+asmlinkage void free_canary_buf(Canary *free_buf, int free_cnt){
+
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+
+	Canary *free_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*free_cnt, GFP_KERNEL);
+	if(copy_from_user(free_buf_kernel, free_buf, sizeof(struct Canary)*free_cnt)!=0){
+		printk(KERN_EMERG "[ERROR] Can't copy from user_space %p to kernel_space %p\n.", free_buf, free_buf_kernel);
+	}
+
+
+	int i;
+	for(i=0; i<free_cnt; i++){
+		int key = free_buf_kernel[i].block_addr;
+		struct canary_hlist *cur_canary = NULL;
+		hash_for_each_possible(cur_pid_table->canary_table, cur_canary, node, key){
+			if(cur_canary->block_addr == key){
+				printk(KERN_EMERG "Remove Canary val = %d, addr = %d\n", cur_canary->canary_val, cur_canary->block_addr);
+	            hash_del(&cur_canary->node);
+	            kfree(cur_canary);
+			}
+		}
+	}
+	kfree(free_buf_kernel);
+}
 
 static int init_mod(void){
 	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
@@ -216,6 +262,8 @@ static int init_mod(void){
 	sys_call_table[361] = (unsigned long *) accept_canary;
 	sys_call_table[362] = (unsigned long *) remove_canary;
 	sys_call_table[368] = (unsigned long *) test_pid_hlist;
+	sys_call_table[369] = (unsigned long *) accept_canary_buf;
+	sys_call_table[370] = (unsigned long *) free_canary_buf;
 	// sys_call_table[364] = (unsigned long *) get_pid_table;
 	original_getpid = sys_call_table[__NR_getpid];
 
@@ -243,12 +291,16 @@ static void exit_mod(void){
 	sys_call_table[363] = NULL;
 	sys_call_table[364] = NULL;
 	sys_call_table[368] = NULL;
+	sys_call_table[369] = NULL;
+	sys_call_table[370] = NULL;
 	sys_call_table[__NR_getpid] = original_getpid;
 
 	write_cr0 (read_cr0 () | 0x10000);
 	printk(KERN_EMERG "Module exited cleanly");
 	return;
 }
+
+
 
 module_init(init_mod);
 module_exit(exit_mod);

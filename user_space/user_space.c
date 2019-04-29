@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#define CANARY_BUF_SIZE 100
+#define CANARY_BUF_SIZE 3
 
 pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -20,14 +20,10 @@ int buf_cnt = 0, free_cnt = 0;
 Canary *alloc_buf = NULL;
 void* *free_buf = NULL;
 
-<<<<<<< HEAD
-=======
-#define MAX_CANARY 100
 Canary *canary_buf = NULL;
 
 
 int canary_num = 0;
->>>>>>> HS/master
 const Canary empty_canary = {-1, -1, -1};
 
 static void* (*real_malloc)(size_t) = NULL;
@@ -89,7 +85,7 @@ void add_canary_alloc(void *ptr, size_t size){
     *canary_addr = canary_val;
 
     Canary tmp = {canary_val, (size_t) ptr, size + sizeof(int)};
-    printf("Add canary val = %d, addr = %p, buf_cnt: %d\n", tmp.canary_val, (void *)tmp.block_addr, buf_cnt);
+    printf("Add canary val = %d, addr = %p\n", tmp.canary_val, (void *)tmp.block_addr);
 
     /*Solution 1: avail_p*/
     // if(avail_p != -1){  // if there exists position available, add this canary into the buffer, update avail_p 
@@ -121,7 +117,7 @@ void add_canary_alloc(void *ptr, size_t size){
     /*Solution 2: */
     if(buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
-        syscall(361, alloc_buf, buf_cnt);
+        syscall(369, alloc_buf, buf_cnt);
         alloc_buf[0] = tmp;
         int i;
         for(i = 1; i < CANARY_BUF_SIZE; i++)
@@ -132,7 +128,7 @@ void add_canary_alloc(void *ptr, size_t size){
         alloc_buf[buf_cnt] = tmp;
         buf_cnt++;
     }
-
+    printf("buf_cnt = %d\n", buf_cnt);
     pthread_mutex_unlock(&mutex);
 }
 
@@ -176,7 +172,7 @@ void add_canary2free(void *ptr){
     printf("Add pointer: %p to free_buf[%d]\n", ptr, free_cnt);
     if(free_cnt == CANARY_BUF_SIZE){
         printf("free_buf is full, pushing ptrs to kernel...\n");
-        syscall(362, free_buf, free_cnt);
+        syscall(370, free_buf, free_cnt);
         free_buf[0] = ptr;
         int i;
         for(i = 1; i < CANARY_BUF_SIZE; i++){
@@ -187,7 +183,6 @@ void add_canary2free(void *ptr){
     else{
         free_buf[free_cnt++] = ptr;
     }
-
     pthread_mutex_unlock(&mutex);
 }
 
