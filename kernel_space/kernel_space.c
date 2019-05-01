@@ -64,7 +64,7 @@ asmlinkage void new_exit_group(int status);
 
 asmlinkage void set_testcase_pid(void){
 	testcast_pid = original_getpid();
-	printk(KERN_EMERG "[PID = %lu] set_testcase_pid = %lu\n", testcast_pid);
+	printk(KERN_EMERG "[PID = %lu] set_testcase_pid = %lu\n", testcast_pid, testcast_pid);
 	return;
 }
 

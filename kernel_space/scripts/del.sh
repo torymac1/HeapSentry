@@ -1,3 +1,3 @@
 #!/bin/bash
 
-rm Module.symvers modules.order maK_it.mod.* maK_it.ko* maK_it.o maK_it.c
+rm Module.symvers modules.order kernel_space.mod.* kernel_space.ko* kernel_space.o kernel_space.c

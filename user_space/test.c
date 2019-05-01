@@ -46,8 +46,8 @@ void test2(){
 	free(p2);
 	printf("malloc p3...\n");
 	void *p3 = malloc(8);
-	printf("realloc p1...\n");
-	p1 = realloc(p1, 20);
+	// printf("realloc p1...\n");
+	// p1 = realloc(p1, 20);
 	printf("calloc p4...\n");
 	void *p4 = calloc(10, 4);
 	printf("malloc p5...\n");
@@ -84,6 +84,8 @@ int test3(){
 
 int main(){
 	syscall(360);
-	test1();
+	// test1();
+	test2();
+	// test3();
 	return 0;
 }
