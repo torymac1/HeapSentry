@@ -188,11 +188,20 @@ asmlinkage int pull_free_canary_buf(void){
 		struct canary_hlist *cur_canary = NULL;
 		hash_for_each_possible(cur_pid_table->canary_table, cur_canary, node, key){
 			if(cur_canary->block_addr == key){
+				int user_space_canary_val;
+				size_t *canary_addr = (size_t *)(cur_canary->block_addr + cur_canary->block_size - sizeof(int));
+				get_user(user_space_canary_val, canary_addr);
+				if(user_space_canary_val != cur_canary->canary_val){
+					printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
+					                                              (size_t *)cur_canary->block_addr);
+				}
 				cur_pid_table->num_of_canary--;
 				printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %d\n",cur_pid_table->pid, \
 					                         cur_canary->canary_val, cur_canary->block_addr);
-	            hash_del(&cur_canary->node);
-	            kfree(cur_canary);
+	            if(free_cnt == CANARY_BUF_SIZE){
+		            hash_del(&cur_canary->node);
+		            kfree(cur_canary);
+		        }
 			}
 		}
 	}
@@ -285,6 +294,7 @@ static void exit_mod(void){
 	sys_call_table[__NR_exit_group] = original_exit_group;
 
 	write_cr0 (read_cr0 () | 0x10000);
+
 	printk(KERN_EMERG "Module exited cleanly");
 	return;
 }

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
+#include <string.h>
 
 void test1(){
 	printf("malloc p1...\n");
@@ -82,10 +83,43 @@ int test3(){
     return 0;
 }
 
-int main(){
+int test4(int argc, char *argv[]){
+	char *p1;
+	char *p2;
+	char *p3;
+	char *p4;
+	if (argc < 2){
+		fprintf(stderr, "Error. Usage: %s <string>\n", argv[0]);
+		exit(-1);
+	}
+
+	p1 = malloc(3);
+	printf("p1 address is %p\n", p1);
+	p2 = malloc(40);
+	printf("p2 address is %p\n", p2);
+	p3 = malloc(40);
+	printf("p3 address is %p\n", p3);
+	p4 = malloc(40);
+	printf("p4 address is %p\n", p4);
+
+	strcpy(p2, "Important stuff right here");
+	strcpy(p1,argv[1]);
+	printf("p1 : %s\np2: %s\n", p1,p2);
+
+	free(p1);
+	free(p2);
+	free(p3);
+	free(p4);
+
+
+	return 0;
+}
+
+int main(int argc, char *argv[]){
 	syscall(360);
-	// test1();
-	test2();
+	test4(argc, argv);
+	// test2();
 	// test3();
+	// test4(argc, argv);
 	return 0;
 }
