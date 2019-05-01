@@ -7,7 +7,6 @@
 #include <time.h> 
 #include "../heapsentry.h"
 #include <sys/syscall.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <pthread.h>
 
@@ -95,7 +94,7 @@ void add_canary_alloc(void *ptr, size_t size){
     if(*buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
         syscall(369);
-        // *buf_cnt = 0;
+        *buf_cnt = 0;
     }
     pthread_mutex_unlock(&mutex);
 }
@@ -108,7 +107,7 @@ void remove_canary(void *ptr){
     for(i = 0; i < *buf_cnt; i++){
         if(alloc_buf[i].block_addr == (size_t)ptr){
             real_free(ptr);
-            printf("Remove Canary addr = %p\n (not in kernel)", ptr);
+            printf("Remove Canary addr = %p (not in kernel)\n", ptr);
             found = 1;
             *buf_cnt = *buf_cnt - 1;
             alloc_buf[i] = alloc_buf[*buf_cnt];

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/syscall.h>
 
 void test1(){
 	printf("malloc p1...\n");
@@ -66,7 +68,22 @@ void test2(){
 	free(p5);
 }
 
+int test3(){
+	int filedesc = open("testfile.txt", O_WRONLY | O_APPEND);
+    if(filedesc < 0)
+        return 1;
+ 
+    if(write(filedesc,"This will be output to testfile.txt\n", 36) != 36)
+    {
+        write(2,"There was an error writing to testfile.txt\n");    // strictly not an error, it is allowable for fewer characters than requested to be written.
+        return 1;
+    }
+ 
+    return 0;
+}
+
 int main(){
-	test1();
+	syscall(360);
+	test3();
 	return 0;
 }

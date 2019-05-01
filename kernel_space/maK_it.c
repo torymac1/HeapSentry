@@ -72,9 +72,12 @@ asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 	//Hijacked write function here
 	return (*original_write)(fd, buf, count);
 }
+
 asmlinkage int new_open(const char *pathname, int flags) {
-	// printk(KERN_EMERG "1111111111111111 %s\n", *pathname);
-    // hijacked open
+    if(original_getpid() == testcast_pid){
+    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    }
+
     return (*original_open)(pathname, flags);
 }
 
@@ -229,9 +232,9 @@ static int init_mod(void){
 	original_getpid = sys_call_table[__NR_getpid];
 
 	// original_write = (void *)sys_call_table[__NR_write];
-	// original_open = (void *)sys_call_table[__NR_open];
+	original_open = (void *)sys_call_table[__NR_open];
 	// sys_call_table[__NR_write] = new_write;
-	// sys_call_table[__NR_open] = new_open;
+	sys_call_table[__NR_open] = new_open;
  //    printk(KERN_EMERG "Write system call old address: %x\n", original_write);
 	// printk(KERN_EMERG "Write system call new address: %x\n", new_write);
 	// printk(KERN_EMERG "Open system call old address: %x\n", original_open);
@@ -246,7 +249,8 @@ static void exit_mod(void){
 	//Cleanup
 	write_cr0 (read_cr0 () & (~ 0x10000));
 	// sys_call_table[__NR_write] = original_write;
-	// sys_call_table[__NR_open] = original_open;
+	sys_call_table[__NR_open] = original_open;
+	sys_call_table[360] = NULL;
 	sys_call_table[361] = NULL;
 	sys_call_table[362] = NULL;
 	sys_call_table[363] = NULL;
