@@ -27,7 +27,7 @@ MODULE_AUTHOR("maK");
 #define PID_TABLE_SIZE 10
 
 long testcast_pid=-1;
-
+DEFINE_HASHTABLE(pid_table, 16);
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
 	long pid;      //key
@@ -56,9 +56,11 @@ unsigned long *sys_call_table = (unsigned long *) SYSCALL_TABLE;
 asmlinkage int (*original_write)(unsigned int, const char __user *, size_t);
 asmlinkage int (*original_open)(const char *pathname, int flags);
 asmlinkage long (*original_getpid) (void);
+asmlinkage void (*original_exit_group) (int status);
+
+asmlinkage void new_exit_group(int status);
 
 
-DEFINE_HASHTABLE(pid_table, 16);
 
 asmlinkage void set_testcase_pid(void){
 	testcast_pid = original_getpid();
@@ -202,6 +204,24 @@ asmlinkage int pull_free_canary_buf(void){
 		return -1;
 }
 
+asmlinkage void free_pid_table(void){
+
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+	printk(KERN_EMERG "[PID = %lu] Free pid.\n", new_obj->pid);
+	int bkt=0;
+	struct canary_hlist *cur_canary = NULL;
+	hash_for_each(cur_pid_table->canary_table, bkt, cur_canary, node){
+		printk(KERN_EMERG "[PID = %lu] Free canary val = %d, addr = %d\n",cur_pid_table->pid, \
+			                         cur_canary->canary_val, cur_canary->block_addr);
+        hash_del(&cur_canary->node);
+        kfree(cur_canary);
+	}
+
+	hash_del(&cur_pid_table->node);
+	kfree(cur_pid_table);
+
+}
+
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
 	//Hijacked write function here
@@ -214,6 +234,12 @@ asmlinkage int new_open(const char *pathname, int flags) {
     }
     check_canary();
     return (*original_open)(pathname, flags);
+}
+
+asmlinkage void new_exit_group(int status){
+	printk(KERN_EMERG "[PID = %lu] Process exit.\n", original_getpid());
+	free_pid_table();
+	return (*original_exit_group)(status);
 }
 
 static int init_mod(void){
@@ -229,15 +255,12 @@ static int init_mod(void){
 	
 
 	original_getpid = sys_call_table[__NR_getpid];
-
-	// original_write = (void *)sys_call_table[__NR_write];
+	original_exit_group = (void *)sys_call_table[__NR_exit_group];	
 	original_open = (void *)sys_call_table[__NR_open];
-	// sys_call_table[__NR_write] = new_write;
+	
+	sys_call_table[__NR_exit_group] = new_exit_group;
 	sys_call_table[__NR_open] = new_open;
- //    printk(KERN_EMERG "Write system call old address: %x\n", original_write);
-	// printk(KERN_EMERG "Write system call new address: %x\n", new_write);
-	// printk(KERN_EMERG "Open system call old address: %x\n", original_open);
-	// printk(KERN_EMERG "Open system call new address: %x\n", new_open);
+	
 
 	//Changing control bit back
 	write_cr0 (read_cr0 () | 0x10000);
