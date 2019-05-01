@@ -21,9 +21,6 @@ Canary *alloc_buf = NULL;
 size_t *free_buf = NULL;
 
 
-#define MAX_CANARY 100
-
-
 
 const Canary empty_canary = {-1, -1, -1};
 
@@ -54,13 +51,9 @@ static void override_alloc(void){
     srand((unsigned)time(NULL));
     if(alloc_buf == NULL){
         alloc_buf = real_malloc(CANARY_BUF_SIZE * sizeof(Canary));
-        // int i;
-        // for(i = 0; i < CANARY_BUF_SIZE; i++){
-        //     alloc_buf[i] = empty_canary;
-        // }
         buf_cnt = real_malloc(sizeof(int));
         *buf_cnt = 0;
-        syscall(???, alloc, buf_cnt);
+        // syscall(361, alloc_buf, buf_cnt);
         printf("alloc_buf initialized.\n");
     }
 }
@@ -72,14 +65,9 @@ static void override_free(){
         fprintf(stderr, "Error in `dlsym` free(): %s\n", dlerror());
     }
     free_buf = real_malloc(CANARY_BUF_SIZE * sizeof(size_t));
-
-    // int i;
-    // for(i = 0; i < CANARY_BUF_SIZE; i++){
-    //     free_buf[i] = 0;
-    // }
     free_cnt = real_malloc(sizeof(int));
     *free_cnt = 0;
-    syscall(???, free_buf, free_cnt);
+    // syscall(362, free_buf, free_cnt);
 
     int i;
     for(i = 0; i < CANARY_BUF_SIZE; i++){
@@ -98,27 +86,16 @@ void add_canary_alloc(void *ptr, size_t size){
     *canary_addr = canary_val;
 
     Canary tmp = {canary_val, (size_t) ptr, size + sizeof(int)};
-    printf("Add canary val = %d, addr = %p, at alloc_buf[%d]\n", tmp.canary_val, (void *)tmp.block_addr, buf_cnt);
+    printf("Add canary val = %d, addr = %p, at alloc_buf[%d]\n", tmp.canary_val, (void *)tmp.block_addr, *buf_cnt);
 
-    alloc_buf[buf_cnt++] = tmp;
+    *buf_cnt = *buf_cnt + 1;
+    alloc_buf[*buf_cnt] = tmp;
 
-    if(buf_cnt == CANARY_BUF_SIZE){
+    if(*buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
-
-        syscall(361);
-
-        syscall(369, alloc_buf, buf_cnt);
-
-        // int i;
-        // for(i = 1; i < CANARY_BUF_SIZE; i++)
-            // alloc_buf[i] = empty_canary;
-        buf_cnt = 0;
+        // syscall(369);
+        *buf_cnt = 0;
     }
-    // else{
-    //     alloc_buf[buf_cnt] = tmp;
-    //     buf_cnt++;
-    // }
-
     pthread_mutex_unlock(&mutex);
 }
 
@@ -128,12 +105,13 @@ void remove_canary(void *ptr){
 
     int found = 0;
     int i;
-    for(i = 0; i < buf_cnt; i++){
+    for(i = 0; i < *buf_cnt; i++){
         if(alloc_buf[i].block_addr == (size_t)ptr){
             found = 1;
-            alloc_buf[i] = alloc_buf[--buf_cnt];
-            alloc_buf[buf_cnt] = empty_canary;
-            // printf("canary removed.\n");
+
+            *buf_cnt = *buf_cnt - 1;
+            alloc_buf[i] = alloc_buf[*buf_cnt];
+            alloc_buf[*buf_cnt] = empty_canary;
             break;
         }
     }
@@ -145,22 +123,17 @@ void remove_canary(void *ptr){
 
 void add_canary2free(void *ptr){
     pthread_mutex_lock(&mutex);
-    printf("Add pointer: %p to free_buf[%d]\n", ptr, free_cnt);
+    printf("Add pointer: %p to free_buf[%d]\n", ptr, *free_cnt);
 
-    free_buf[free_cnt++] = (size_t)ptr;
+    *free_cnt = *free_cnt + 1;
+    free_buf[*free_cnt] = (size_t)ptr;
 
-    if(free_cnt == CANARY_BUF_SIZE){
+    if(*free_cnt == CANARY_BUF_SIZE){
         printf("free_buf is full, pushing ptrs to kernel...\n");
 
-        syscall(362);
+        // syscall(370);
 
-        syscall(370, free_buf, free_cnt);
-
-        // int i;
-        // for(i = 1; i < CANARY_BUF_SIZE; i++){
-        //     free_buf[i] = NULL;
-        // }
-        free_cnt = 0;
+        *free_cnt = 0;
     }
 
     pthread_mutex_unlock(&mutex);
@@ -174,8 +147,6 @@ void *malloc(size_t size){
     void *ptr = NULL;
     ptr = real_malloc(size + sizeof(int));
     add_canary_alloc(ptr, size);
-    // fprintf(stderr, "malloc(%d) = ", size);
-    // fprintf(stderr, "%p\n", ptr);
     return ptr;
 }
 
@@ -202,7 +173,6 @@ void free(void *ptr){
     if(real_free == NULL){
         override_free();
     }
-    // fprintf(stderr, "free %p\n", ptr);
     remove_canary(ptr);
     real_free(ptr);
     return;

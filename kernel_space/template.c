@@ -30,6 +30,10 @@ MODULE_AUTHOR("maK");
 struct pid_canary_hlist{
 	long pid;      //key
 	int num_of_canary;
+	int *buf_cnt;
+	int *free_cnt;
+	Canary *alloc_buf;
+	size_t *free_buf;
 	struct hlist_head canary_table[1 << PID_TABLE_SIZE];
 	struct hlist_node node;
 };
@@ -88,6 +92,10 @@ asmlinkage struct pid_canary_hlist *get_pid_table(void){
 	}
 	new_obj->pid = pid;
 	new_obj->num_of_canary = 0;
+	new_obj->buf_cnt = NULL;
+	new_obj->free_cnt = NULL;
+	new_obj->alloc_buf = NULL;
+	new_obj->free_buf = NULL;
 	hash_add(pid_table, &new_obj->node, new_obj->pid);
 	printk(KERN_EMERG "[PID = %lu] Insert new pid.\n", new_obj->pid);
 	
@@ -109,15 +117,37 @@ asmlinkage int check_canary(void){
 }
 
 
+asmlinkage void accept_alloc_canary_buf_addr(Canary *alloc_buf, int *buf_cnt){
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+	cur_pid_table->alloc_buf = alloc_buf;
+	cur_pid_table->buf_cnt = buf_cnt;
+	printk(KERN_EMERG "[PID = %lu] [INFO] alloc_buf address is %p\n.", cur_pid_table->pid, \
+			                                          cur_pid_table->buf_cnt);
+}
 
-asmlinkage void accept_canary_buf(Canary *alloc_buf, int buf_cnt){
+asmlinkage void accept_free_canary_buf_addr(size_t *free_buf, int *free_cnt){
+	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+	cur_pid_table->alloc_buf = free_buf;
+	cur_pid_table->buf_cnt = free_cnt;
+	printk(KERN_EMERG "[PID = %lu] [INFO] free_buf address is %p\n.", cur_pid_table->pid, \
+			                                          cur_pid_table->free_buf);
+}
+
+asmlinkage void pull_alloc_canary_buf(void){
 	//get current pid
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+	
+	if(cur_pid_table->alloc_buf == NULL){
+		printk(KERN_EMERG "[PID = %lu] [INFO] User space alloc_buf is NULL.");
+		return;
+	}
 
+	int buf_cnt;
+	get_user(buf_cnt, cur_pid_table->buf_cnt);
 	Canary *alloc_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*buf_cnt, GFP_KERNEL);
-	if(copy_from_user(alloc_buf_kernel, alloc_buf, sizeof(struct Canary)*buf_cnt)!=0){
+	if(copy_from_user(alloc_buf_kernel, cur_pid_table->alloc_buf, sizeof(struct Canary)*buf_cnt)!=0){
 		printk(KERN_EMERG "[PID = %lu] [ERROR] Can't copy from user_space %p to kernel_space %p\n.", cur_pid_table->pid, \
-			                               alloc_buf, alloc_buf_kernel);
+			                               cur_pid_table->alloc_buf, alloc_buf_kernel);
 	}
 	
 	int i;
@@ -134,14 +164,20 @@ asmlinkage void accept_canary_buf(Canary *alloc_buf, int buf_cnt){
 	kfree(alloc_buf_kernel);
 }
 
-asmlinkage void free_canary_buf(size_t *free_buf, int free_cnt){
+asmlinkage void pull_free_canary_buf(void){
 	
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
+	if(cur_pid_table->free_buf == NULL){
+		printk(KERN_EMERG "[PID = %lu] [INFO] User space free_buf is NULL.");
+		return;
+	}
 
+	int free_cnt;
+	get_user(free_cnt, cur_pid_table->free_cnt);
 	size_t *free_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*free_cnt, GFP_KERNEL);
-	if(copy_from_user(free_buf_kernel, free_buf, sizeof(size_t)*free_cnt)!=0){
+	if(copy_from_user(free_buf_kernel, cur_pid_table->free_buf, sizeof(size_t)*free_cnt)!=0){
 		printk(KERN_EMERG "[PID = %lu] [ERROR] Can't copy from user_space %p to kernel_space %p\n.", cur_pid_table->pid, \
-			                                free_buf, free_buf_kernel);
+			                                cur_pid_table->free_buf, free_buf_kernel);
 	}
 
 
@@ -167,11 +203,12 @@ static int init_mod(void){
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
-	// orig_saved = (unsigned long *)(sys_call_table[__NR_hello]);
-	// sys_call_table[360] = (unsigned long *) sys_canary;
-	sys_call_table[369] = (unsigned long *) accept_canary_buf;
-	sys_call_table[370] = (unsigned long *) free_canary_buf;
-	// sys_call_table[364] = (unsigned long *) get_pid_table;
+
+	sys_call_table[369] = (unsigned long *) pull_alloc_canary_buf;
+	sys_call_table[370] = (unsigned long *) pull_free_canary_buf;
+	sys_call_table[361] = (unsigned long *) accept_alloc_canary_buf_addr;
+	sys_call_table[362] = (unsigned long *) accept_free_canary_buf_addr;
+
 	original_getpid = sys_call_table[__NR_getpid];
 
 	// original_write = (void *)sys_call_table[__NR_write];
