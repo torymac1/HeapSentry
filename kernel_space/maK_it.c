@@ -207,7 +207,7 @@ asmlinkage int pull_free_canary_buf(void){
 asmlinkage void free_pid_table(void){
 
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
-	printk(KERN_EMERG "[PID = %lu] Free pid.\n", new_obj->pid);
+	printk(KERN_EMERG "[PID = %lu] Free pid.\n", cur_pid_table->pid);
 	int bkt=0;
 	struct canary_hlist *cur_canary = NULL;
 	hash_for_each(cur_pid_table->canary_table, bkt, cur_canary, node){
@@ -281,6 +281,8 @@ static void exit_mod(void){
 	sys_call_table[369] = NULL;
 	sys_call_table[370] = NULL;
 	sys_call_table[__NR_getpid] = original_getpid;
+	sys_call_table[__NR_exit_group] = original_open;
+	sys_call_table[__NR_exit_group] = original_exit_group;
 
 	write_cr0 (read_cr0 () | 0x10000);
 	printk(KERN_EMERG "Module exited cleanly");
