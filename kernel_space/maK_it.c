@@ -67,21 +67,6 @@ asmlinkage void set_testcase_pid(void){
 }
 
 
-asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
-	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
-	//Hijacked write function here
-	return (*original_write)(fd, buf, count);
-}
-
-asmlinkage int new_open(const char *pathname, int flags) {
-    if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
-    }
-
-    return (*original_open)(pathname, flags);
-}
-
-
 asmlinkage struct pid_canary_hlist *get_pid_table(void){
 	long pid = original_getpid();
 
@@ -215,6 +200,20 @@ asmlinkage int pull_free_canary_buf(void){
 		return 0;
 	else
 		return -1;
+}
+
+asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
+	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
+	//Hijacked write function here
+	return (*original_write)(fd, buf, count);
+}
+
+asmlinkage int new_open(const char *pathname, int flags) {
+    if(original_getpid() == testcast_pid){
+    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    }
+    check_canary();
+    return (*original_open)(pathname, flags);
 }
 
 static int init_mod(void){

@@ -84,6 +84,6 @@ int test3(){
 
 int main(){
 	syscall(360);
-	test3();
+	test1();
 	return 0;
 }
