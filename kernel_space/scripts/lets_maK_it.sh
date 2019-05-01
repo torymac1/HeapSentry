@@ -3,8 +3,8 @@
 #sys_call_table
 
 KERN=$(uname -r)
-IN="template.c"
-OUT="maK_it.c"
+IN="kernel_space_template.c"
+OUT="kernel_space.c"
 
 BREAK="----------------------------"
 
