@@ -26,6 +26,8 @@ MODULE_AUTHOR("maK");
 #define SYSCALL_TABLE 0xc17901c0
 #define PID_TABLE_SIZE 10
 
+long testcast_pid=-1;
+
 //A hashtable to store key = pid, val = canary_hlist;
 struct pid_canary_hlist{
 	long pid;      //key
@@ -57,6 +59,12 @@ asmlinkage long (*original_getpid) (void);
 
 
 DEFINE_HASHTABLE(pid_table, 16);
+
+asmlinkage void set_testcase_pid(void){
+	testcast_pid = original_getpid();
+	printk(KERN_EMERG "[PID = %lu] set_testcase_pid = %lu\n", testcast_pid);
+	return;
+}
 
 
 asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
@@ -127,8 +135,8 @@ asmlinkage void accept_alloc_canary_buf_addr(Canary *alloc_buf, int *buf_cnt){
 
 asmlinkage void accept_free_canary_buf_addr(size_t *free_buf, int *free_cnt){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
-	cur_pid_table->alloc_buf = free_buf;
-	cur_pid_table->buf_cnt = free_cnt;
+	cur_pid_table->free_buf = free_buf;
+	cur_pid_table->free_cnt = free_cnt;
 	printk(KERN_EMERG "[PID = %lu] [INFO] free_buf address is %p\n.", cur_pid_table->pid, \
 			                                          cur_pid_table->free_buf);
 }
@@ -164,7 +172,7 @@ asmlinkage void pull_alloc_canary_buf(void){
 	kfree(alloc_buf_kernel);
 }
 
-asmlinkage void pull_free_canary_buf(void){
+asmlinkage int pull_free_canary_buf(void){
 	
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	if(cur_pid_table->free_buf == NULL){
@@ -196,6 +204,11 @@ asmlinkage void pull_free_canary_buf(void){
 		}
 	}
 	kfree(free_buf_kernel);
+	
+	if(i == free_cnt)
+		return 0;
+	else
+		return -1;
 }
 
 static int init_mod(void){
@@ -203,11 +216,12 @@ static int init_mod(void){
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
-
-	sys_call_table[369] = (unsigned long *) pull_alloc_canary_buf;
-	sys_call_table[370] = (unsigned long *) pull_free_canary_buf;
+	sys_call_table[360] = (unsigned long *) set_testcase_pid;
 	sys_call_table[361] = (unsigned long *) accept_alloc_canary_buf_addr;
 	sys_call_table[362] = (unsigned long *) accept_free_canary_buf_addr;
+	sys_call_table[369] = (unsigned long *) pull_alloc_canary_buf;
+	sys_call_table[370] = (unsigned long *) pull_free_canary_buf;
+	
 
 	original_getpid = sys_call_table[__NR_getpid];
 
