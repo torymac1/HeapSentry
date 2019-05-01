@@ -20,7 +20,10 @@ int *buf_cnt = NULL, *free_cnt = NULL;
 Canary *alloc_buf = NULL;
 size_t *free_buf = NULL;
 
+
 #define MAX_CANARY 100
+
+
 
 const Canary empty_canary = {-1, -1, -1};
 
@@ -69,6 +72,7 @@ static void override_free(){
         fprintf(stderr, "Error in `dlsym` free(): %s\n", dlerror());
     }
     free_buf = real_malloc(CANARY_BUF_SIZE * sizeof(size_t));
+
     // int i;
     // for(i = 0; i < CANARY_BUF_SIZE; i++){
     //     free_buf[i] = 0;
@@ -76,6 +80,12 @@ static void override_free(){
     free_cnt = real_malloc(sizeof(int));
     *free_cnt = 0;
     syscall(???, free_buf, free_cnt);
+
+    int i;
+    for(i = 0; i < CANARY_BUF_SIZE; i++){
+        free_buf[i] = 0;
+    }
+
     printf("free_buf initialized.\n");
 }
 
@@ -94,7 +104,11 @@ void add_canary_alloc(void *ptr, size_t size){
 
     if(buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
+
         syscall(361);
+
+        syscall(369, alloc_buf, buf_cnt);
+
         // int i;
         // for(i = 1; i < CANARY_BUF_SIZE; i++)
             // alloc_buf[i] = empty_canary;
@@ -137,7 +151,11 @@ void add_canary2free(void *ptr){
 
     if(free_cnt == CANARY_BUF_SIZE){
         printf("free_buf is full, pushing ptrs to kernel...\n");
+
         syscall(362);
+
+        syscall(370, free_buf, free_cnt);
+
         // int i;
         // for(i = 1; i < CANARY_BUF_SIZE; i++){
         //     free_buf[i] = NULL;

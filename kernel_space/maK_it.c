@@ -41,7 +41,7 @@ struct pid_canary_hlist{
 //A hashtable to store key = block_addr, val = canary_val;
 struct canary_hlist{
 	int canary_val;
-	int block_addr;   //key
+	size_t block_addr;   //key
 	int block_size;
 
 	struct hlist_node node;
@@ -112,7 +112,7 @@ asmlinkage struct pid_canary_hlist *get_pid_table(void){
 	return new_obj;
 }
 
-asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
+asmlinkage int accept_canary(int canary_val, size_t block_addr, int block_size){
 	//get or create pid_canary_hlist for cur_pid, return address
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	printk(KERN_EMERG "[pid = %d]\n", cur_pid_table->pid);
@@ -130,11 +130,11 @@ asmlinkage int accept_canary(int canary_val, int block_addr, int block_size){
 }
 
 
-asmlinkage int remove_canary(int block_addr){
+asmlinkage int remove_canary(size_t block_addr){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 
 	bool flag = false;
-	int key = block_addr;
+	size_t key = block_addr;
 	struct canary_hlist* obj;
 	hash_for_each_possible(cur_pid_table->canary_table, obj, node, key) {
         if(obj->block_addr == key) {
@@ -227,19 +227,19 @@ asmlinkage void accept_canary_buf(Canary *alloc_buf, int buf_cnt){
 	kfree(alloc_buf_kernel);
 }
 
-asmlinkage void free_canary_buf(Canary *free_buf, int free_cnt){
+asmlinkage void free_canary_buf(size_t *free_buf, int free_cnt){
 
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 
-	Canary *free_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*free_cnt, GFP_KERNEL);
-	if(copy_from_user(free_buf_kernel, free_buf, sizeof(struct Canary)*free_cnt)!=0){
+	size_t *free_buf_kernel = (Canary *)kmalloc(sizeof(struct Canary)*free_cnt, GFP_KERNEL);
+	if(copy_from_user(free_buf_kernel, free_buf, sizeof(size_t)*free_cnt)!=0){
 		printk(KERN_EMERG "[ERROR] Can't copy from user_space %p to kernel_space %p\n.", free_buf, free_buf_kernel);
 	}
 
 
 	int i;
 	for(i=0; i<free_cnt; i++){
-		int key = free_buf_kernel[i].block_addr;
+		int key = free_buf_kernel[i];
 		struct canary_hlist *cur_canary = NULL;
 		hash_for_each_possible(cur_pid_table->canary_table, cur_canary, node, key){
 			if(cur_canary->block_addr == key){

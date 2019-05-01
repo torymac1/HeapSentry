@@ -14,6 +14,8 @@ void test1(){
 	void *p5 = malloc(10);
 	printf("malloc p6...\n");
 	void *p6 = malloc(10);
+	printf("malloc p7...\n");
+	void *p7 = malloc(10);
 
 	printf("free p1...\n");
 	free(p1);
@@ -27,6 +29,8 @@ void test1(){
 	free(p5);
 	printf("free p6...\n");
 	free(p6);
+	printf("free p7...\n");
+	free(p7);
 
 }
 
