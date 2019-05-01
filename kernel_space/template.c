@@ -170,6 +170,9 @@ asmlinkage void pull_alloc_canary_buf(void){
 			                                alloc_buf_kernel[i].canary_val, alloc_buf_kernel[i].block_addr);
 	}
 	kfree(alloc_buf_kernel);
+
+	//set user_space buf_cnt to 0;
+	put_user(0, cur_pid_table->buf_cnt);
 }
 
 asmlinkage int pull_free_canary_buf(void){
@@ -204,7 +207,7 @@ asmlinkage int pull_free_canary_buf(void){
 		}
 	}
 	kfree(free_buf_kernel);
-	
+
 	if(i == free_cnt)
 		return 0;
 	else

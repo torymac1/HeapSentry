@@ -95,7 +95,7 @@ void add_canary_alloc(void *ptr, size_t size){
     if(*buf_cnt == CANARY_BUF_SIZE){
         printf("alloc_buf is full, pushing canaries to kernel...\n");
         syscall(369);
-        *buf_cnt = 0;
+        // *buf_cnt = 0;
     }
     pthread_mutex_unlock(&mutex);
 }
