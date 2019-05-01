@@ -170,15 +170,15 @@ void *calloc(size_t num, size_t size){
     return ptr;
 }
 
-// void *realloc(void *ptr, size_t size){
-//     if(real_realloc == NULL)
-//         override_alloc();
+void *realloc(void *ptr, size_t size){
+    if(real_realloc == NULL)
+        override_alloc();
 
-//     remove_canary(ptr);
-//     ptr = real_realloc(ptr, size + sizeof(int));
-//     add_canary_alloc(ptr, size);
-//     return ptr;
-// }
+    // remove_canary(ptr);
+    ptr = real_realloc(ptr, size + sizeof(int));
+    add_canary_alloc(ptr, size);
+    return ptr;
+}
 
 void free(void *ptr){
     if(real_free == NULL){
