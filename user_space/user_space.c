@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#define CANARY_BUF_SIZE 3
+
 
 pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
@@ -131,7 +131,7 @@ void add_canary2free(void *ptr){
     *free_cnt = *free_cnt + 1;
     if(*free_cnt == CANARY_BUF_SIZE){
         printf("free_buf is full, pushing ptrs to kernel...\n");
-        int verify_free_buf = syscall(370);
+        int verify_free_buf = syscall(370, 1);
         if(verify_free_buf == 0){
             int i;
             for(i=0; i<*free_cnt; i++){

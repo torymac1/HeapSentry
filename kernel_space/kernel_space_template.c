@@ -23,7 +23,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("maK");
 
-#define SYSCALL_TABLE_TEMPLATE
+#define SYSCALL_TABLE 0xc17901c0
 #define PID_TABLE_SIZE 10
 
 long testcast_pid=-1;
@@ -101,17 +101,22 @@ asmlinkage struct pid_canary_hlist *get_pid_table(void){
 }
 
 
-asmlinkage int check_canary(void){
+asmlinkage void check_alloc_canary_buf(void){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 
 	int bkt=0;
 	struct canary_hlist *cur_canary = NULL;
 	hash_for_each(cur_pid_table->canary_table, bkt, cur_canary, node){
 		//check canary
-		printk(KERN_EMERG "[PID = %lu] Print Canary val = %d\n",cur_pid_table->pid, cur_canary->canary_val);
+		int user_space_canary_val;
+		size_t *canary_addr = (size_t *)(cur_canary->block_addr + cur_canary->block_size - sizeof(int));
+		get_user(user_space_canary_val, canary_addr);
+		if(user_space_canary_val != cur_canary->canary_val){
+			printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
+			                                              (size_t *)cur_canary->block_addr);
+		}
+		// printk(KERN_EMERG "[PID = %lu] Print Canary val = %d\n",cur_pid_table->pid, cur_canary->canary_val);
 	}
-
-	return 0;
 }
 
 
@@ -165,7 +170,7 @@ asmlinkage void pull_alloc_canary_buf(void){
 	put_user(0, cur_pid_table->buf_cnt);
 }
 
-asmlinkage int pull_free_canary_buf(void){
+asmlinkage int pull_free_canary_buf(int remove_from_kernel){
 	
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	if(cur_pid_table->free_buf == NULL){
@@ -184,8 +189,9 @@ asmlinkage int pull_free_canary_buf(void){
 
 	int i;
 	for(i=0; i<free_cnt; i++){
-		int key = free_buf_kernel[i];
+		//verify canaries
 		struct canary_hlist *cur_canary = NULL;
+		int key = free_buf_kernel[i];
 		hash_for_each_possible(cur_pid_table->canary_table, cur_canary, node, key){
 			if(cur_canary->block_addr == key){
 				int user_space_canary_val;
@@ -195,10 +201,10 @@ asmlinkage int pull_free_canary_buf(void){
 					printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 					                                              (size_t *)cur_canary->block_addr);
 				}
-				cur_pid_table->num_of_canary--;
-				printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %d\n",cur_pid_table->pid, \
+	            if(remove_from_kernel == 1){
+	            	cur_pid_table->num_of_canary--;
+					printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %d\n",cur_pid_table->pid, \
 					                         cur_canary->canary_val, cur_canary->block_addr);
-	            if(free_cnt == CANARY_BUF_SIZE){
 		            hash_del(&cur_canary->node);
 		            kfree(cur_canary);
 		        }
@@ -240,8 +246,12 @@ asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
 asmlinkage int new_open(const char *pathname, int flags) {
     if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	pull_alloc_canary_buf();
+	    check_alloc_canary_buf();
+	    pull_free_canary_buf(0);
     }
-    check_canary();
+    
+
     return (*original_open)(pathname, flags);
 }
 
