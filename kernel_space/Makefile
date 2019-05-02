@@ -4,7 +4,7 @@
 CONFIG_MODULE_SIG=n
 
 ifneq ($(KERNELRELEASE),)
-        obj-m := maK_it.o
+        obj-m := kernel_space.o
 
 # Otherwise we were called directly from the command
 # line; invoke the kernel build system.
