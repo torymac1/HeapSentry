@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <errno.h>\
+#include <errno.h>
 #include <sys/mount.h>
 
 

@@ -10,11 +10,13 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#define CANARY_BUF_SIZE 3
+
 
 pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-int *buf_cnt = NULL, *free_cnt = NULL;
+int *buf_cnt = NULL;
+int *free_cnt = NULL;
+int *need_free = NULL;
 
 Canary *alloc_buf = NULL;
 size_t *free_buf = NULL;
@@ -29,7 +31,7 @@ static void* (*real_calloc)(int, size_t) = NULL;
 static void* (*real_realloc)(void *, size_t) = NULL;
 
 void add_canary2free(void *);
-
+void release_free_buf();
 /*Override memory allocation functions and initialize one buffer for all of them*/
 static void override_alloc(void){
     real_malloc = dlsym(RTLD_NEXT, "malloc");
@@ -65,8 +67,10 @@ static void override_free(){
     }
     free_buf = real_malloc(CANARY_BUF_SIZE * sizeof(size_t));
     free_cnt = real_malloc(sizeof(int));
+    need_free = real_malloc(sizeof(int));
     *free_cnt = 0;
-    syscall(362, free_buf, free_cnt);
+    *need_free = 0;
+    syscall(362, free_buf, free_cnt, need_free);
 
     int i;
     for(i = 0; i < CANARY_BUF_SIZE; i++){
@@ -101,13 +105,22 @@ void add_canary_alloc(void *ptr, size_t size){
 
 void remove_canary(void *ptr){
     pthread_mutex_lock(&mutex);
+    printf("addr = %p, *need_free = %d\n", ptr, *need_free);
+    if(*need_free != 0){
+        printf("need_free is set to %d\n", *need_free);
+        release_free_buf();
+    }
 
     int found = 0;
     int i;
     for(i = 0; i < *buf_cnt; i++){
         if(alloc_buf[i].block_addr == (size_t)ptr){
+            int *canary_addr = (int *) alloc_buf[i].block_addr + alloc_buf[i].block_addr - sizeof(int);
+            if(alloc_buf[i].canary_val != *canary_addr){
+                printf("Wrong Canary at %p\n", (void *) alloc_buf[i].block_addr);
+            }
             real_free(ptr);
-            printf("Remove Canary addr = %p (not in kernel)\n", ptr);
+            printf("Remove Canary addr = %p (verified in user space)\n", (void *)ptr);
             found = 1;
             *buf_cnt = *buf_cnt - 1;
             alloc_buf[i] = alloc_buf[*buf_cnt];
@@ -115,7 +128,7 @@ void remove_canary(void *ptr){
             break;
         }
     }
-    if(!found)
+    if(found == 0)
         add_canary2free(ptr);
         
 
@@ -123,6 +136,7 @@ void remove_canary(void *ptr){
 }
 
 void add_canary2free(void *ptr){
+
     pthread_mutex_lock(&mutex);
     printf("Add pointer: %p to free_buf[%d]\n", ptr, *free_cnt);
 
@@ -133,12 +147,7 @@ void add_canary2free(void *ptr){
         printf("free_buf is full, pushing ptrs to kernel...\n");
         int verify_free_buf = syscall(370);
         if(verify_free_buf == 0){
-            int i;
-            for(i=0; i<*free_cnt; i++){
-                printf("Remove Canary addr = %p (verified in kernel)\n", (void *)free_buf[i]);
-                real_free((void *)free_buf[i]);
-            }
-            *free_cnt = 0;
+            release_free_buf();
         }
         else if(verify_free_buf == -1){
             printf("Can't Remove all canary in free_buf");
@@ -149,6 +158,20 @@ void add_canary2free(void *ptr){
 
     pthread_mutex_unlock(&mutex);
 }
+
+
+void release_free_buf(){
+    pthread_mutex_lock(&mutex);
+    int i;
+    for(i=0; i<*free_cnt; i++){
+        printf("Remove Canary addr = %p (verified in kernel)\n", (void *)free_buf[i]);
+        real_free((void *)free_buf[i]);
+    }
+    *free_cnt = 0;
+    *need_free = 0;
+    pthread_mutex_unlock(&mutex);
+}
+
 
 void *malloc(size_t size){
     if(real_malloc == NULL) {
