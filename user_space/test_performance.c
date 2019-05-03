@@ -22,7 +22,7 @@ void performance(int n)
 	}
 	
 	for(i=0;i<n;i++)
-	free(p[i]);
+		free(p[i]);
 	end = clock();
 	cpu_time_used = ((double)(end -start))/CLOCKS_PER_SEC;
 	printf("Run time is %f\n", cpu_time_used); 
@@ -121,10 +121,11 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	// performance(1000);
+	performance(1000);
 
 	//overflow with free
 
+	// overflow();
 	// overflow();
 
 	//overflow test with open, write test
@@ -144,7 +145,7 @@ int main(){
     // execve_test();
 
     //mount
-    mount_test();
+    // mount_test();
 
 	return 0;
 }
