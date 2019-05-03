@@ -54,9 +54,14 @@ struct canary_hlist{
 
 unsigned long *sys_call_table = (unsigned long *) SYSCALL_TABLE;
 
-asmlinkage int (*original_write)(unsigned int, const char __user *, size_t);
+// asmlinkage int (*original_write)(unsigned int, const char __user *, size_t);
 asmlinkage int (*original_open)(const char *pathname, int flags);
-asmlinkage long (*original_getpid) (void);
+asmlinkage int (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
+asmlinkage int (*original_chmod)(const char *pathname, mode_t mode);
+asmlinkage pid_t (*original_fork)(void);
+
+
+asmlinkage pid_t (*original_getpid) (void);
 asmlinkage void (*original_exit_group) (int status);
 
 asmlinkage void new_exit_group(int status);
@@ -178,11 +183,10 @@ asmlinkage int pull_and_check_alloc_canary_buf(void){
 		size_t *canary_addr = (size_t *)(cur_canary->block_addr + cur_canary->block_size - sizeof(int));
 		get_user(user_space_canary_val, canary_addr);
 		if(user_space_canary_val != cur_canary->canary_val){
-			printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
+			printk(KERN_EMERG "[PID = %lu] [ERROR] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 			                                              (size_t *)cur_canary->block_addr);
 			return -1;
 		}
-		
 	}
 
 	//set user_space buf_cnt to 0;
@@ -263,6 +267,12 @@ asmlinkage int check_canary(void){
 	return 0;
 }
 
+asmlinkage void new_exit_group(int status){
+	printk(KERN_EMERG "[PID = %lu] Process exit.\n", original_getpid());
+	free_pid_table();
+	return (*original_exit_group)(status);
+}
+
 
 asmlinkage int new_open(const char *pathname, int flags) {
     if(original_getpid() == testcast_pid){
@@ -277,14 +287,43 @@ asmlinkage int new_open(const char *pathname, int flags) {
 }
 
 
-
-
-
-asmlinkage void new_exit_group(int status){
-	printk(KERN_EMERG "[PID = %lu] Process exit.\n", original_getpid());
-	free_pid_table();
-	return (*original_exit_group)(status);
+asmlinkage int new_execve(const char *filename, char *const argv[], char *const envp[]){
+	if(original_getpid() == testcast_pid){
+    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	if (check_canary()<0){
+    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    		new_exit_group(3);
+    	} 
+    }
+    return (*original_execve)(filename, argv, envp);
 }
+
+asmlinkage int new_chmod(const char *pathname, mode_t mode){
+	if(original_getpid() == testcast_pid){
+    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	if (check_canary()<0){
+    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    		new_exit_group(3);
+    	} 
+    }
+    return (*original_chmod)(pathname, mode);
+}
+
+
+asmlinkage pid_t new_fork(void){
+	if(original_getpid() == testcast_pid){
+    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	if (check_canary()<0){
+    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    		new_exit_group(3);
+    	} 
+    }
+    return (*original_fork)();
+}
+
+
+
+
 
 static int init_mod(void){
 	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
@@ -302,12 +341,17 @@ static int init_mod(void){
 
 	original_getpid = sys_call_table[__NR_getpid];
 
-	original_exit_group = (void *)sys_call_table[__NR_exit_group];	
-	original_open = (void *)sys_call_table[__NR_open];
-	
+	original_exit_group = sys_call_table[__NR_exit_group];	
+	original_open = sys_call_table[__NR_open];
+	original_fork = sys_call_table[__NR_fork];
+	original_chmod = sys_call_table[__NR_chmod];
+	original_execve = sys_call_table[__NR_execve];
+
 	sys_call_table[__NR_exit_group] = new_exit_group;
 	sys_call_table[__NR_open] = new_open;
-	
+	sys_call_table[__NR_fork] = new_fork;
+	sys_call_table[__NR_chmod] = new_chmod;
+	sys_call_table[__NR_execve] = new_execve;
 
 	//Changing control bit back
 	write_cr0 (read_cr0 () | 0x10000);
@@ -317,19 +361,19 @@ static int init_mod(void){
 static void exit_mod(void){
 	//Cleanup
 	write_cr0 (read_cr0 () & (~ 0x10000));
-	// sys_call_table[__NR_write] = original_write;
-	sys_call_table[__NR_open] = original_open;
+
 	sys_call_table[360] = NULL;
 	sys_call_table[361] = NULL;
 	sys_call_table[362] = NULL;
-	sys_call_table[363] = NULL;
-	sys_call_table[364] = NULL;
-	sys_call_table[368] = NULL;
 	sys_call_table[369] = NULL;
 	sys_call_table[370] = NULL;
 	sys_call_table[__NR_getpid] = original_getpid;
-	sys_call_table[__NR_exit_group] = original_open;
+
 	sys_call_table[__NR_exit_group] = original_exit_group;
+	sys_call_table[__NR_open] = original_open;
+	sys_call_table[__NR_fork] = original_fork;
+	sys_call_table[__NR_chmod] = original_chmod;
+	sys_call_table[__NR_execve] = original_execve;
 
 	write_cr0 (read_cr0 () | 0x10000);
 
