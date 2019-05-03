@@ -185,7 +185,8 @@ asmlinkage int pull_and_check_alloc_canary_buf(void){
 		if(user_space_canary_val != cur_canary->canary_val){
 			printk(KERN_EMERG "[PID = %lu] [ERROR] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 			                                              (size_t *)cur_canary->block_addr);
-			return -1;
+			new_exit_group(3);
+			// return -1;
 		}
 	}
 
@@ -225,7 +226,8 @@ asmlinkage int pull_and_check_free_canary_buf(void){
 				if(user_space_canary_val != cur_canary->canary_val){
 					printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 					                                              (size_t *)cur_canary->block_addr);
-					return -1;
+					new_exit_group(3);
+					// return -1;
 				}
 	            
             	cur_pid_table->num_of_canary--;
@@ -277,10 +279,13 @@ asmlinkage void new_exit_group(int status){
 asmlinkage int new_open(const char *pathname, int flags) {
     if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
-    	if (check_canary()<0){
-    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
-    		new_exit_group(3);
-    	} 
+    	// if (check_canary()<0){
+    	// 	printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    	// 	new_exit_group(3);
+    	// } 
+    	pull_and_check_free_canary_buf();
+    	pull_and_check_alloc_canary_buf();
+
     }
     return (*original_open)(pathname, flags);
     	
@@ -290,10 +295,12 @@ asmlinkage int new_open(const char *pathname, int flags) {
 asmlinkage int new_execve(const char *filename, char *const argv[], char *const envp[]){
 	if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
-    	if (check_canary()<0){
-    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
-    		new_exit_group(3);
-    	} 
+    	// if (check_canary()<0){
+    	// 	printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    	// 	new_exit_group(3);
+    	// } 
+    	pull_and_check_free_canary_buf();
+    	pull_and_check_alloc_canary_buf();
     }
     return (*original_execve)(filename, argv, envp);
 }
@@ -301,10 +308,13 @@ asmlinkage int new_execve(const char *filename, char *const argv[], char *const 
 asmlinkage int new_chmod(const char *pathname, mode_t mode){
 	if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
-    	if (check_canary()<0){
-    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
-    		new_exit_group(3);
-    	} 
+    	// if (check_canary()<0){
+    	// 	printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    	// 	new_exit_group(3);
+    	// } 
+    	pull_and_check_free_canary_buf();
+    	pull_and_check_alloc_canary_buf();
+
     }
     return (*original_chmod)(pathname, mode);
 }
@@ -313,10 +323,12 @@ asmlinkage int new_chmod(const char *pathname, mode_t mode){
 asmlinkage pid_t new_fork(void){
 	if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
-    	if (check_canary()<0){
-    		printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
-    		new_exit_group(3);
-    	} 
+    	// if (check_canary()<0){
+    	// 	printk(KERN_EMERG "[PID = %lu] [ERROR] Detect a WRONG canary, process EXIT!%p\n",testcast_pid);
+    	// 	new_exit_group(3);
+    	// } 
+    	pull_and_check_free_canary_buf();
+    	pull_and_check_alloc_canary_buf();
     }
     return (*original_fork)();
 }

@@ -118,6 +118,7 @@ void remove_canary(void *ptr){
             int *canary_addr = (int *) alloc_buf[i].block_addr + alloc_buf[i].block_addr - sizeof(int);
             if(alloc_buf[i].canary_val != *canary_addr){
                 printf("Wrong Canary at %p\n", (void *) alloc_buf[i].block_addr);
+                exit(3);
             }
             real_free(ptr);
             printf("Remove Canary addr = %p (verified in user space)\n", (void *)ptr);
@@ -150,7 +151,7 @@ void add_canary2free(void *ptr){
             release_free_buf();
         }
         else if(verify_free_buf == -1){
-            printf("Can't Remove all canary in free_buf");
+            printf("Can't Remove all canary in free_buf\n");
             *free_cnt = 0;
         }
         
