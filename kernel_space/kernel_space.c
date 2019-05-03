@@ -34,6 +34,7 @@ struct pid_canary_hlist{
 	int num_of_canary;
 	int *buf_cnt;
 	int *free_cnt;
+	int *need_free;
 	Canary *alloc_buf;
 	size_t *free_buf;
 	struct hlist_head canary_table[1 << PID_TABLE_SIZE];
@@ -76,7 +77,6 @@ asmlinkage struct pid_canary_hlist *get_pid_table(void){
 	struct pid_canary_hlist *obj;
 	hash_for_each_possible(pid_table, obj, node, pid){
 		if(obj->pid == pid){
-			// printk(KERN_EMERG "Find pid = %d\n", obj->pid);
 			return obj;
 		}
 	}
@@ -115,7 +115,7 @@ asmlinkage void check_alloc_canary_buf(void){
 			printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 			                                              (size_t *)cur_canary->block_addr);
 		}
-		// printk(KERN_EMERG "[PID = %lu] Print Canary val = %d\n",cur_pid_table->pid, cur_canary->canary_val);
+		
 	}
 }
 
@@ -124,15 +124,16 @@ asmlinkage void accept_alloc_canary_buf_addr(Canary *alloc_buf, int *buf_cnt){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	cur_pid_table->alloc_buf = alloc_buf;
 	cur_pid_table->buf_cnt = buf_cnt;
-	printk(KERN_EMERG "[PID = %lu] [INFO] alloc_buf address is %p\n.", cur_pid_table->pid, \
+	printk(KERN_EMERG "[PID = %lu] [INFO] alloc_buf address is %p\n", cur_pid_table->pid, \
 			                                          cur_pid_table->buf_cnt);
 }
 
-asmlinkage void accept_free_canary_buf_addr(size_t *free_buf, int *free_cnt){
+asmlinkage void accept_free_canary_buf_addr(size_t *free_buf, int *free_cnt, int *need_free){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	cur_pid_table->free_buf = free_buf;
 	cur_pid_table->free_cnt = free_cnt;
-	printk(KERN_EMERG "[PID = %lu] [INFO] free_buf address is %p\n.", cur_pid_table->pid, \
+	cur_pid_table->need_free = need_free;
+	printk(KERN_EMERG "[PID = %lu] [INFO] free_buf address is %p\n", cur_pid_table->pid, \
 			                                          cur_pid_table->free_buf);
 }
 
@@ -141,7 +142,7 @@ asmlinkage void pull_alloc_canary_buf(void){
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	
 	if(cur_pid_table->alloc_buf == NULL){
-		printk(KERN_EMERG "[PID = %lu] [INFO] User space alloc_buf is NULL.");
+		printk(KERN_EMERG "[PID = %lu] [INFO] User space alloc_buf is NULL.", cur_pid_table->pid);
 		return;
 	}
 
@@ -161,8 +162,8 @@ asmlinkage void pull_alloc_canary_buf(void){
 		cur_canary->block_size = alloc_buf_kernel[i].block_size;
 		hash_add(cur_pid_table->canary_table, &cur_canary->node, cur_canary->block_addr);
 		cur_pid_table->num_of_canary++;
-		printk(KERN_EMERG "[PID = %lu] Accept Canary val = %d, addr = %d\n", cur_pid_table->pid, \
-			                                alloc_buf_kernel[i].canary_val, alloc_buf_kernel[i].block_addr);
+		printk(KERN_EMERG "[PID = %lu] Accept Canary val = %d, addr = %p\n", cur_pid_table->pid, \
+			                                alloc_buf_kernel[i].canary_val, (void *)alloc_buf_kernel[i].block_addr);
 	}
 	kfree(alloc_buf_kernel);
 
@@ -170,7 +171,7 @@ asmlinkage void pull_alloc_canary_buf(void){
 	put_user(0, cur_pid_table->buf_cnt);
 }
 
-asmlinkage int pull_free_canary_buf(int remove_from_kernel){
+asmlinkage int pull_free_canary_buf(void){
 	
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
 	if(cur_pid_table->free_buf == NULL){
@@ -201,18 +202,19 @@ asmlinkage int pull_free_canary_buf(int remove_from_kernel){
 					printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 					                                              (size_t *)cur_canary->block_addr);
 				}
-	            if(remove_from_kernel == 1){
-	            	cur_pid_table->num_of_canary--;
-					printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %d\n",cur_pid_table->pid, \
-					                         cur_canary->canary_val, cur_canary->block_addr);
-		            hash_del(&cur_canary->node);
-		            kfree(cur_canary);
-		        }
+	            
+            	cur_pid_table->num_of_canary--;
+				printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %p\n",cur_pid_table->pid, \
+				                         cur_canary->canary_val, (void *) cur_canary->block_addr);
+	            hash_del(&cur_canary->node);
+	            kfree(cur_canary);  
 			}
 		}
 	}
 	kfree(free_buf_kernel);
-
+	//Inform user space to free free_buf
+	put_user(1, cur_pid_table->need_free);
+	
 	if(i == free_cnt)
 		return 0;
 	else
@@ -226,8 +228,8 @@ asmlinkage void free_pid_table(void){
 	int bkt=0;
 	struct canary_hlist *cur_canary = NULL;
 	hash_for_each(cur_pid_table->canary_table, bkt, cur_canary, node){
-		printk(KERN_EMERG "[PID = %lu] Free canary val = %d, addr = %d\n",cur_pid_table->pid, \
-			                         cur_canary->canary_val, cur_canary->block_addr);
+		printk(KERN_EMERG "[PID = %lu] Free canary val = %d, addr = %\n",cur_pid_table->pid, \
+			                         cur_canary->canary_val, (void *)cur_canary->block_addr);
         hash_del(&cur_canary->node);
         kfree(cur_canary);
 	}
@@ -237,18 +239,12 @@ asmlinkage void free_pid_table(void){
 
 }
 
-asmlinkage int new_write(unsigned int fd, const char __user *buf, size_t count){
-	printk(KERN_INFO "NEW write to fd = %d/n", fd);	
-	//Hijacked write function here
-	return (*original_write)(fd, buf, count);
-}
-
 asmlinkage int new_open(const char *pathname, int flags) {
     if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
     	pull_alloc_canary_buf();
 	    check_alloc_canary_buf();
-	    pull_free_canary_buf(0);
+	    pull_free_canary_buf();
     }
     
 
@@ -266,6 +262,8 @@ static int init_mod(void){
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
+
+	//System call for HeapSentry
 	sys_call_table[360] = (unsigned long *) set_testcase_pid;
 	sys_call_table[361] = (unsigned long *) accept_alloc_canary_buf_addr;
 	sys_call_table[362] = (unsigned long *) accept_free_canary_buf_addr;
@@ -274,6 +272,7 @@ static int init_mod(void){
 	
 
 	original_getpid = sys_call_table[__NR_getpid];
+
 	original_exit_group = (void *)sys_call_table[__NR_exit_group];	
 	original_open = (void *)sys_call_table[__NR_open];
 	

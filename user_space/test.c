@@ -97,21 +97,26 @@ int test4(int argc, char *argv[]){
 	printf("p1 address is %p\n", p1);
 	p2 = malloc(40);
 	printf("p2 address is %p\n", p2);
-	// p3 = malloc(40);
-	// printf("p3 address is %p\n", p3);
-	// p4 = malloc(40);
-	// printf("p4 address is %p\n", p4);
+	p3 = malloc(40);
+	printf("p3 address is %p\n", p3);
+	p4 = malloc(40);
+	printf("p4 address is %p\n", p4);
+
+	free(p3);
 
 	strcpy(p2, "Important stuff right here");
 	strcpy(p1,argv[1]);
 	printf("p1 : %s\np2: %s\n", p1,p2);
 	
 	int filedesc = open("testfile.txt", O_WRONLY | O_APPEND);
-    if(filedesc < 0)
-        return 1;
+    // if(filedesc < 0)
+    //     return 1;
 
 	free(p1);
 	free(p2);
+
+	filedesc = open("testfile.txt", O_WRONLY | O_APPEND);
+	free(p4);
 	// free(p3);
 	// free(p4);
 
