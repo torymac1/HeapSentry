@@ -16,8 +16,7 @@ void performance(int n)
 	start = clock();
 	char* p[n];
 	int i;
-	for(i=0;i<n;i++)
-	{
+	for(i=0;i<n;i++){
 	  p[i]=(char*)malloc(sizeof(char)*5);
 	}
 	
