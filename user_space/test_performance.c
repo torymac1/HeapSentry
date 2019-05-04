@@ -16,8 +16,7 @@ void performance(int n)
 	start = clock();
 	char* p[n];
 	int i;
-	for(i=0;i<n;i++)
-	{
+	for(i=0;i<n;i++){
 	  p[i]=(char*)malloc(sizeof(char)*5);
 	}
 	
@@ -59,7 +58,8 @@ int o_open_write()
 void fork_test()
 {
 	char *p1 = malloc(10);
-	strcpy(p1,"overflowtesting");
+	// strcpy(p1,"overflowtesting");
+	strcpy(p1,"ove");
 	fork();
 	printf("Forking in the heap overflow\n"); 
 	free(p1);
@@ -121,7 +121,7 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	performance(1000);
+	// performance(10);
 
 	//overflow with free
 
@@ -134,7 +134,7 @@ int main(){
 
     //fork
 
-    // fork_test();
+    fork_test();
 
     //chmod
 

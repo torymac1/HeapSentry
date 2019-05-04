@@ -124,14 +124,10 @@ int test4(int argc, char *argv[]){
 	return 0;
 }
 
-int test4(){
-
-}
 
 int main(int argc, char *argv[]){
 	syscall(360);
-	test5();
-	// test4(argc, argv);
+	test4(argc, argv);
 	// test2();
 	// test3();
 	// test4(argc, argv);

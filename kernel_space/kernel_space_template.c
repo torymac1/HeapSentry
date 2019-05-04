@@ -23,6 +23,8 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("maK");
 
+
+///system call table at usr/include/i386-linux-gnu/asm/unistd_32.h
 #define SYSCALL_TABLE 0xc17901c0
 #define PID_TABLE_SIZE 10
 
@@ -59,7 +61,8 @@ asmlinkage int (*original_open)(const char *pathname, int flags);
 asmlinkage int (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
 asmlinkage int (*original_chmod)(const char *pathname, mode_t mode);
 asmlinkage pid_t (*original_fork)(void);
-
+asmlinkage long (*original_clone)(unsigned long flags, void *child_stack,void *ptid, \
+	                           void *ctid, struct pt_regs *regs);
 
 asmlinkage pid_t (*original_getpid) (void);
 asmlinkage void (*original_exit_group) (int status);
@@ -321,6 +324,7 @@ asmlinkage int new_chmod(const char *pathname, mode_t mode){
 
 
 asmlinkage pid_t new_fork(void){
+	// printk(KERN_EMERG "[PID = %lu] This is new_fork.\n", original_getpid());
 	if(original_getpid() == testcast_pid){
     	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
     	// if (check_canary()<0){
@@ -333,8 +337,15 @@ asmlinkage pid_t new_fork(void){
     return (*original_fork)();
 }
 
-
-
+asmlinkage long new_clone(unsigned long flags, void *child_stack, void *ptid, void *ctid, struct pt_regs *regs){
+	if(original_getpid() == testcast_pid){
+		printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	pull_and_check_free_canary_buf();
+    	pull_and_check_alloc_canary_buf();   
+    }
+    
+    return (*original_clone)(flags, child_stack, ptid, ctid, regs);
+}
 
 
 static int init_mod(void){
@@ -351,20 +362,21 @@ static int init_mod(void){
 	sys_call_table[370] = (unsigned long *) pull_and_check_free_canary_buf;
 	
 
-	original_getpid = sys_call_table[__NR_getpid];
+	original_getpid = (void *)sys_call_table[__NR_getpid];
 
-	original_exit_group = sys_call_table[__NR_exit_group];	
-	original_open = sys_call_table[__NR_open];
-	original_fork = sys_call_table[__NR_fork];
-	original_chmod = sys_call_table[__NR_chmod];
-	original_execve = sys_call_table[__NR_execve];
+	original_exit_group = (void *)sys_call_table[__NR_exit_group];	
+	original_open = (void *)sys_call_table[__NR_open];
+	original_fork = (void *)sys_call_table[__NR_fork];
+	original_chmod = (void *)sys_call_table[__NR_chmod];
+	original_execve = (void *)sys_call_table[__NR_execve];
+	original_clone = (void *)sys_call_table[__NR_clone];
 
 	sys_call_table[__NR_exit_group] = new_exit_group;
 	sys_call_table[__NR_open] = new_open;
 	sys_call_table[__NR_fork] = new_fork;
 	sys_call_table[__NR_chmod] = new_chmod;
 	sys_call_table[__NR_execve] = new_execve;
-
+	sys_call_table[__NR_clone] = new_clone;
 	//Changing control bit back
 	write_cr0 (read_cr0 () | 0x10000);
 	return 0;
@@ -386,6 +398,7 @@ static void exit_mod(void){
 	sys_call_table[__NR_fork] = original_fork;
 	sys_call_table[__NR_chmod] = original_chmod;
 	sys_call_table[__NR_execve] = original_execve;
+	sys_call_table[__NR_clone] = original_clone;
 
 	write_cr0 (read_cr0 () | 0x10000);
 
