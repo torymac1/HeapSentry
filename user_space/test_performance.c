@@ -134,7 +134,7 @@ int main(){
 
     //fork
 
-    fork_test();
+    // fork_test();
 
     //chmod
 
@@ -142,7 +142,7 @@ int main(){
 
     //execve
 
-    // execve_test();
+    execve_test();
 
     //mount
     // mount_test();

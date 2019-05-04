@@ -70,11 +70,11 @@ asmlinkage void (*original_exit_group) (int status);
 asmlinkage void new_exit_group(int status);
 
 
-/*This function is a system call for running testcase. In test case, we first call this syscall,
+/*This function is a system call for running test case. In test case, we first call this syscall,
 then the kernel will set testcast_pid to current pid.*/
 asmlinkage void set_testcase_pid(void){
 	testcast_pid = original_getpid();
-	printk(KERN_EMERG "[PID = %lu] Set_testcase_pid = %lu\n", testcast_pid, testcast_pid);
+	printk(KERN_EMERG "[PID = %lu] [INFO] Set_testcase_pid = %lu\n", testcast_pid, testcast_pid);
 	return;
 }
 
@@ -106,7 +106,7 @@ asmlinkage struct pid_canary_hlist *get_pid_table(void){
 	new_obj->alloc_buf = NULL;
 	new_obj->free_buf = NULL;
 	hash_add(pid_table, &new_obj->node, new_obj->pid);
-	printk(KERN_EMERG "[PID = %lu] Insert new pid.\n", new_obj->pid);
+	printk(KERN_EMERG "[PID = %lu] [INFO] New process detected, insert to hash table.\n", new_obj->pid);
 	
 	return new_obj;
 }
@@ -161,7 +161,7 @@ asmlinkage int pull_and_check_alloc_canary_buf(void){
 		cur_canary->block_size = alloc_buf_kernel[i].block_size;
 		hash_add(cur_pid_table->canary_table, &cur_canary->node, cur_canary->block_addr);
 		cur_pid_table->num_of_canary++;
-		printk(KERN_EMERG "[PID = %lu] Accept Canary val = %d, addr = %p\n", cur_pid_table->pid, \
+		printk(KERN_EMERG "[PID = %lu] [INFO] Accept Canary val = %d, addr = %p\n", cur_pid_table->pid, \
 			                                alloc_buf_kernel[i].canary_val, (void *)alloc_buf_kernel[i].block_addr);
 	}
 	kfree(alloc_buf_kernel);
@@ -177,7 +177,7 @@ asmlinkage int pull_and_check_alloc_canary_buf(void){
 		if(user_space_canary_val != cur_canary->canary_val){
 			printk(KERN_EMERG "[PID = %lu] [ERROR] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 			                                              (size_t *)cur_canary->block_addr);
-			new_exit_group(3);
+			new_exit_group(7);
 			// return -1;
 		}
 	}
@@ -217,14 +217,14 @@ asmlinkage int pull_and_check_free_canary_buf(void){
 				size_t *canary_addr = (size_t *)(cur_canary->block_addr + cur_canary->block_size - sizeof(int));
 				get_user(user_space_canary_val, canary_addr);
 				if(user_space_canary_val != cur_canary->canary_val){
-					printk(KERN_EMERG "[PID = %lu] [Error] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
+					printk(KERN_EMERG "[PID = %lu] [ERROR] Wrong Canary at addr = %p\n",cur_pid_table->pid, \
 					                                              (size_t *)cur_canary->block_addr);
-					new_exit_group(3);
+					new_exit_group(7);
 					// return -1;
 				}
 	            
             	cur_pid_table->num_of_canary--;
-				printk(KERN_EMERG "[PID = %lu] Remove Canary val = %d, addr = %p\n",cur_pid_table->pid, \
+				printk(KERN_EMERG "[PID = %lu] [INFO] Remove Canary val = %d, addr = %p\n",cur_pid_table->pid, \
 				                         cur_canary->canary_val, (void *) cur_canary->block_addr);
 	            hash_del(&cur_canary->node);
 	            kfree(cur_canary);  
@@ -242,11 +242,11 @@ asmlinkage int pull_and_check_free_canary_buf(void){
 asmlinkage void free_pid_table(void){
 
 	struct pid_canary_hlist *cur_pid_table = get_pid_table();
-	printk(KERN_EMERG "[PID = %lu] Free pid.\n", cur_pid_table->pid);
+	printk(KERN_EMERG "[PID = %lu] [INFO] Start to free process hash table.\n", cur_pid_table->pid);
 	int bkt=0;
 	struct canary_hlist *cur_canary = NULL;
 	hash_for_each(cur_pid_table->canary_table, bkt, cur_canary, node){
-		printk(KERN_EMERG "[PID = %lu] Free canary val = %d, addr = %p\n",cur_pid_table->pid, \
+		printk(KERN_EMERG "[PID = %lu] [INFO] Free canary val = %d, addr = %p\n",cur_pid_table->pid, \
 			                         cur_canary->canary_val, (void *)cur_canary->block_addr);
         hash_del(&cur_canary->node);
         kfree(cur_canary);
@@ -259,15 +259,21 @@ asmlinkage void free_pid_table(void){
 
 /*Re-implement exit_group()*/
 asmlinkage void new_exit_group(int status){
-	printk(KERN_EMERG "[PID = %lu] Process exit.\n", original_getpid());
+	printk(KERN_EMERG "[PID = %lu] [INFO] exit_group() detected, will free process hash table.\n", original_getpid());
 	free_pid_table();
+	if(status == 7){
+		printk(KERN_EMERG "[PID = %lu] [INFO] Process EXIT due to WRONG canary!\n", original_getpid());
+	}
+	else{
+		printk(KERN_EMERG "[PID = %lu] [INFO] Process EXIT!\n", original_getpid());
+	}
 	return (*original_exit_group)(status);
 }
 
 /*Re-implement open()*/
 asmlinkage int new_open(const char *pathname, int flags) {
     if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk open() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
 
@@ -279,7 +285,7 @@ asmlinkage int new_open(const char *pathname, int flags) {
 /*Re-implement execve()*/
 asmlinkage int new_execve(const char *filename, char *const argv[], char *const envp[]){
 	if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk execve() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
     }
@@ -289,7 +295,7 @@ asmlinkage int new_execve(const char *filename, char *const argv[], char *const 
 /*Re-implement chmod()*/
 asmlinkage int new_chmod(const char *pathname, mode_t mode){
 	if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk chmod() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
 
@@ -297,9 +303,10 @@ asmlinkage int new_chmod(const char *pathname, mode_t mode){
     return (*original_chmod)(pathname, mode);
 }
 
+/*Re-implement fchmod()*/
 asmlinkage int new_fchmod(int fd, mode_t mode){
 	if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk fchmod() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
 
@@ -310,16 +317,17 @@ asmlinkage int new_fchmod(int fd, mode_t mode){
 /*Re-implement fork()*/
 asmlinkage pid_t new_fork(void){
 	if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk fork() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
     }
     return (*original_fork)();
 }
 
+/*Re-implement vfork()*/
 asmlinkage pid_t new_vfork(void){
 	if(original_getpid() == testcast_pid){
-    	printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+    	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk vfork() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
     }
@@ -328,7 +336,7 @@ asmlinkage pid_t new_vfork(void){
 /*Re-implement clone()*/
 asmlinkage long new_clone(unsigned long flags, void *child_stack, void *ptid, void *ctid, struct pt_regs *regs){
 	if(original_getpid() == testcast_pid){
-		printk(KERN_EMERG "[PID = %lu] This is a testcase.\n", testcast_pid);
+		printk(KERN_EMERG "[PID = %lu] [INFO] High-risk clone() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();   
     }
@@ -339,7 +347,7 @@ asmlinkage long new_clone(unsigned long flags, void *child_stack, void *ptid, vo
 /*This function is to initialize the HeapSentry module. It will add our customized system calls 
 to sys_call_table, and hijack all original high-risk system calls.*/
 static int init_mod(void){
-	printk(KERN_EMERG "Syscall Table Address: %x\n", SYSCALL_TABLE);
+	printk(KERN_EMERG "[INFO] Module iniliazed, syscall table address: %x\n", SYSCALL_TABLE);
 	
 	//Changing control bit to allow write	
 	write_cr0 (read_cr0 () & (~ 0x10000));
@@ -400,7 +408,7 @@ static void exit_mod(void){
 
 	write_cr0 (read_cr0 () | 0x10000);
 
-	printk(KERN_EMERG "Module exited cleanly");
+	printk(KERN_EMERG "[INFO] Module exited, syscall table address: %x\n", SYSCALL_TABLE);
 	return;
 }
 
