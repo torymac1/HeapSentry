@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <errno.h>\
+#include <errno.h>
 #include <sys/mount.h>
 
 
@@ -16,13 +16,12 @@ void performance(int n)
 	start = clock();
 	char* p[n];
 	int i;
-	for(i=0;i<n;i++)
-	{
+	for(i=0;i<n;i++){
 	  p[i]=(char*)malloc(sizeof(char)*5);
 	}
 	
 	for(i=0;i<n;i++)
-	free(p[i]);
+		free(p[i]);
 	end = clock();
 	cpu_time_used = ((double)(end -start))/CLOCKS_PER_SEC;
 	printf("Run time is %f\n", cpu_time_used); 
@@ -59,7 +58,8 @@ int o_open_write()
 void fork_test()
 {
 	char *p1 = malloc(10);
-	strcpy(p1,"overflowtesting");
+	// strcpy(p1,"overflowtesting");
+	strcpy(p1,"ove");
 	fork();
 	printf("Forking in the heap overflow\n"); 
 	free(p1);
@@ -70,7 +70,7 @@ void chmod_test()
 	char *p1 = malloc(10);
 	strcpy(p1,"overflowtesting");
 	const char *path;
-  	path = "testfile.txt";
+  	path = "test.c";
 	chmod(path, S_IRUSR|S_IRGRP|S_IROTH);
 	free(p1);
 }
@@ -121,10 +121,11 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	// performance(1000);
+	performance(10);
 
 	//overflow with free
 
+	// overflow();
 	// overflow();
 
 	//overflow test with open, write test
@@ -144,7 +145,7 @@ int main(){
     // execve_test();
 
     //mount
-    mount_test();
+    // mount_test();
 
 	return 0;
 }

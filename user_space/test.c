@@ -102,22 +102,33 @@ int test4(int argc, char *argv[]){
 	p4 = malloc(40);
 	printf("p4 address is %p\n", p4);
 
+	free(p3);
+
 	strcpy(p2, "Important stuff right here");
 	strcpy(p1,argv[1]);
 	printf("p1 : %s\np2: %s\n", p1,p2);
+	
+	int filedesc = open("testfile.txt", O_WRONLY | O_APPEND);
+    // if(filedesc < 0)
+    //     return 1;
 
 	free(p1);
 	free(p2);
-	free(p3);
+
+	filedesc = open("testfile.txt", O_WRONLY | O_APPEND);
 	free(p4);
+	// free(p3);
+	// free(p4);
 
 
 	return 0;
 }
 
+
 int main(int argc, char *argv[]){
-	syscall(360);
-	test4(argc, argv);
+	printf("test executing\n");
+	// syscall(360);
+	// test1();
 	// test2();
 	// test3();
 	// test4(argc, argv);
