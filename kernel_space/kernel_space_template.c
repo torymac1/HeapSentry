@@ -288,6 +288,7 @@ asmlinkage int new_execve(const char *filename, char *const argv[], char *const 
     	printk(KERN_EMERG "[PID = %lu] [INFO] High-risk execve() detected in testcase.\n", testcast_pid);
     	pull_and_check_free_canary_buf();
     	pull_and_check_alloc_canary_buf();
+    	free_pid_table();
     }
     return (*original_execve)(filename, argv, envp);
 }
