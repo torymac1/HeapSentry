@@ -22,7 +22,6 @@ Canary *alloc_buf = NULL;
 size_t *free_buf = NULL;
 
 
-
 const Canary empty_canary = {-1, -1, -1};
 
 static void* (*real_malloc)(size_t) = NULL;

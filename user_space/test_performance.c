@@ -121,7 +121,7 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	performance(1000);
+	performance(10);
 
 	//overflow with free
 
