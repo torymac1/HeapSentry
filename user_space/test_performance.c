@@ -58,7 +58,8 @@ int o_open_write()
 void fork_test()
 {
 	char *p1 = malloc(10);
-	strcpy(p1,"overflowtesting");
+	// strcpy(p1,"overflowtesting");
+	strcpy(p1,"ove");
 	fork();
 	printf("Forking in the heap overflow\n"); 
 	free(p1);
@@ -120,7 +121,7 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	performance(10);
+	// performance(10);
 
 	//overflow with free
 
@@ -133,7 +134,7 @@ int main(){
 
     //fork
 
-    // fork_test();
+    fork_test();
 
     //chmod
 
