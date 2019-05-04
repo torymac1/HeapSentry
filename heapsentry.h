@@ -1,5 +1,5 @@
 #define MAX_PID 32768
-#define CANARY_BUF_SIZE 3
+#define CANARY_BUF_SIZE 10
 
 
 typedef struct Canary{
