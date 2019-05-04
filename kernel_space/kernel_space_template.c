@@ -70,7 +70,7 @@ asmlinkage void (*original_exit_group) (int status);
 asmlinkage void new_exit_group(int status);
 
 
-/*This function is a system call for running testcase. In test case, we first call this syscall,
+/*This function is a system call for running test case. In test case, we first call this syscall,
 then the kernel will set testcast_pid to current pid.*/
 asmlinkage void set_testcase_pid(void){
 	testcast_pid = original_getpid();
