@@ -70,7 +70,7 @@ void chmod_test()
 	char *p1 = malloc(10);
 	strcpy(p1,"overflowtesting");
 	const char *path;
-  	path = "testfile.txt";
+  	path = "test.c";
 	chmod(path, S_IRUSR|S_IRGRP|S_IROTH);
 	free(p1);
 }
@@ -121,7 +121,7 @@ int main(){
 	syscall(360);
 
 	//performance test 
-	// performance(10);
+	performance(10);
 
 	//overflow with free
 
@@ -134,7 +134,7 @@ int main(){
 
     //fork
 
-    fork_test();
+    // fork_test();
 
     //chmod
 
