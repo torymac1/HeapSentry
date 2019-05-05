@@ -70,5 +70,5 @@ If you don't need these printed information in terminal, you can just ignore the
 
 ### More details
 
-Please check our project report and the original paper [HeapSentry: Kernel-assisted Protection against Heap Overflows ](https://www.securitee.org/files/heapsentry_dimva2013.pdf) by [Prof. Nick Nikiforakis](https://www.securitee.org) for more details. 
+Please check [our project report](./RuntimeError_Project_Report_HeapSentry.pdf) and the original paper [HeapSentry: Kernel-assisted Protection against Heap Overflows](https://www.securitee.org/files/heapsentry_dimva2013.pdf) by [Prof. Nick Nikiforakis](https://www.securitee.org) for more details. 
 
