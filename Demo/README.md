@@ -66,7 +66,7 @@ To exit, simply remove HeapSentry-K module from kernel.
 sudo rmmod kernel_space
 ```
 
-If you don't need printed information in terminal, you can just ignore the firs command "cd Demo", and follow same commands shown above.
+If you don't need these printed information in terminal, you can just ignore the first command "cd Demo", and run other commands shown above.
 
 ### More details
 
