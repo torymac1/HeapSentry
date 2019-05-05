@@ -23,4 +23,4 @@ test_p: test_performance.c
 	gcc -g -o test_p test_performance.c
 
 clean:
-	rm *.so
+	rm *.so test test1 test2 test3 test4 test5 test_p
