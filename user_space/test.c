@@ -126,8 +126,9 @@ int test4(int argc, char *argv[]){
 
 
 int main(int argc, char *argv[]){
-	syscall(360);
-	test4(argc, argv);
+	printf("test executing\n");
+	// syscall(360);
+	// test1();
 	// test2();
 	// test3();
 	// test4(argc, argv);
