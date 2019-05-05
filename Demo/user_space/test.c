@@ -120,14 +120,15 @@ int test4(int argc, char *argv[]){
 	// free(p3);
 	// free(p4);
 
-
+ 
 	return 0;
 }
 
 
 int main(int argc, char *argv[]){
-	syscall(360);
-	test4(argc, argv);
+	printf("test executing\n");
+	// syscall(360);
+	// test1();
 	// test2();
 	// test3();
 	// test4(argc, argv);

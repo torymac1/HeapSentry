@@ -70,7 +70,7 @@ void chmod_test()
 	char *p1 = malloc(10);
 	strcpy(p1,"overflowtesting");
 	const char *path;
-  	path = "testfile.txt";
+  	path = "test.c";
 	chmod(path, S_IRUSR|S_IRGRP|S_IROTH);
 	free(p1);
 }
@@ -117,11 +117,15 @@ int mount_test()
 }
 
 int main(){
-	
+
+	printf("Please input the number of allocation commands:\n");
+    int c;
+    scanf("%d", &c);
+	printf("c is %d\n", c);
 	syscall(360);
 
 	//performance test 
-	// performance(10);
+	performance(c);
 
 	//overflow with free
 
@@ -142,7 +146,7 @@ int main(){
 
     //execve
 
-    execve_test();
+    // execve_test();
 
     //mount
     // mount_test();
