@@ -41,7 +41,7 @@ make test_p
 LD_PRELOAD=./user_space.so ./test_p
 ```
 
-Now can see how HeapSentry works!
+Now you can see how HeapSentry works!
 
 We provide several different test cases for you to run :)
 
